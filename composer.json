@@ -1,8 +1,0 @@
-{
-    "name": "organoleptic-analysis/anova-duncan",
-    "description": "A project to perform One-Way ANOVA and Duncan's test on organoleptic data using PHP",
-    "type": "project",
-    "require": {
-        "phpoffice/phpspreadsheet": "^1.18"
-    }
-}
