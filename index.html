@@ -7,29 +7,103 @@
       date.setTime(date.getTime() + (days * 24 * 60 * 60 * 1000));
       expires = "; expires=" + date.toUTCString();
     }
-    document.cookie = name + "=" + (value || "") + expires + "; path=/";
+    document.cookie = name + "=" + (value || "")  + expires + "; path=/";
   }
 
-  // Data cookies Netflix Anda
-  const netflixCookies = [
-    { name: "netflix-sans-normal-3-loaded", value: "true" },
-    { name: "SecureNetflixId", value: "v%3D2%26mac%3DAQEAEQABABTu-ZPouDBu-E5uvM4jTtrnOCXRcsgpnm4.%26dt%3D1718211362889", secure: true }, // Cookie yang aman (https only)
-    { name: "NetflixId", value: "ct%3DBQAOAAEBEHekjN0vEiMiKGA17edkVvOCYCXA99Nupsd5fhdxkL29UqRD4cAcARH2kfyau_P5JMq-chHh7FKKUpvJJ_rMeGQWbHdMUH5SelA-USIAJq_CaQMuBpBkh5klCV_xaRSWzA0Jf-vE1u_-oxITZ4_x5_ZhHb8r0kJtNbyKlHMNjvYUKNJIqGSKGCBkXCSBkE_xKE0jDsWgb9e-LntcRGn28X0ruDVl4XUqi4JMMwQv9ZvuypulTRepGMluJ76PSNuHL-jdrdVkV3oDpGvVqQXE0vdB8AC4ruowx2IcrhEL7x6TyVzeu1oyxmWQ9htLdVTCei7C3BqiROjaGIFj3eKXmsx0h4kDmhLIjYu3dz-iQMsZ2YFjvYSKnHCi4WaETCRFybs68ozSraXvTX9HvFBpG5JTifKrzGstOlU7_Z2h9b8TyNrunuzwSi4DuaguNJ85DizyHGAAM3iGy0AyA1GHunVYFM7BvazC37pjFvfgIdm9BpxnuEOW8CKoaqtAJRrqJzsX75de8k5YZXMrPHQUQr-_AfYlEaf99trVjG3TtkFdid2zfGEH5T2B5tSzcQDcBwAfoVYG0_6FUYnmpv2cJ0h_OH4vYV2F1RkNcjVKVrsf7GhJbzogm7TCUD1vkMw2xye5evjpTMRG79KD236ZsUnOxjmX90uX1xIVWExp6e5PrSZ2xgSd7nNwrmIKqGxI5J1WN9IBOkioreYb9dwCrETet0FwJOVQL2QE3dqA33F4MeLu2nZhc2a3QjT3Q_ig2qQbG_Wv3diJML-dlY7AEnr-rVwpwopx2Zr4kFyoCIiOz17SWGEyIt2AEJuFUBlBWmf6", secure: true }, // Cookie yang aman (https only)
-    { name: "OptanonConsent", value: "isGpcEnabled=0&datestamp=Wed+Jun+12+2024+23%3A56%3A03+GMT%2B0700+(Indochina+Time)&version=202405.1.0&isIABGlobal=false&hosts=&consentId=8b775bff-812f-43e4-a7ae-4022987882dc&interactionCount=1&landingPath=NotLandingPage&groups=C0001%3A1%2CC0002%3A1%2CC0003%3A1%2CC0004%3A1&AwaitingReconsent=false&browserGpcFlag=0&isAnonUser=1" },
-    { name: "flwssn", value: "c661db85-3687-4748-b834-3129760ee3a0" },
-    { name: "netflix-sans-bold-3-loaded", value: "true" },
-    { name: "nfvdid", value: "BQFmAAEBEN19inTUYmgE_u2g-q7tlPRggByIfO6KazXXEwh6I31TI_T1RGtNSRWcBf0lagkPVjtyvieRatLQNjWEqB0FVCEZZGYmZ9r1M1H-aWJAGWxXYtLNC2ebfbus0Ad4O_UVJmFBz7y2qUf27XlYzPeFTVeT" }
-  ];
-
-  // Mengatur semua cookie Netflix
-  netflixCookies.forEach(cookie => {
-    setCookie(cookie.name, cookie.value, 365); // Contoh: cookie berlaku 1 tahun
-
-    // Tambahkan atribut `secure` jika ada pada cookie
-    if (cookie.secure) {
-      document.cookie += "; secure";
+  // Mengatur cookie Netflix
+  setCookie("NetflixId", "[
+    {
+        "domain": ".netflix.com",
+        "expirationDate": 1725987362.996335,
+        "hostOnly": false,
+        "httpOnly": false,
+        "name": "netflix-sans-normal-3-loaded",
+        "path": "/",
+        "sameSite": null,
+        "secure": false,
+        "session": false,
+        "storeId": null,
+        "value": "true"
+    },
+    {
+        "domain": ".netflix.com",
+        "expirationDate": 1749747362.089721,
+        "hostOnly": false,
+        "httpOnly": true,
+        "name": "SecureNetflixId",
+        "path": "/",
+        "sameSite": "strict",
+        "secure": true,
+        "session": false,
+        "storeId": null,
+        "value": "v%3D2%26mac%3DAQEAEQABABTu-ZPouDBu-E5uvM4jTtrnOCXRcsgpnm4.%26dt%3D1718211362889"
+    },
+    {
+        "domain": ".netflix.com",
+        "expirationDate": 1749747362.09021,
+        "hostOnly": false,
+        "httpOnly": true,
+        "name": "NetflixId",
+        "path": "/",
+        "sameSite": "lax",
+        "secure": true,
+        "session": false,
+        "storeId": null,
+        "value": "ct%3DBQAOAAEBEHekjN0vEiMiKGA17edkVvOCYCXA99Nupsd5fhdxkL29UqRD4cAcARH2kfyau_P5JMq-chHh7FKKUpvJJ_rMeGQWbHdMUH5SelA-USIAJq_CaQMuBpBkh5klCV_xaRSWzA0Jf-vE1u_-oxITZ4_x5_ZhHb8r0kJtNbyKlHMNjvYUKNJIqGSKGCBkXCSBkE_xKE0jDsWgb9e-LntcRGn28X0ruDVl4XUqi4JMMwQv9ZvuypulTRepGMluJ76PSNuHL-jdrdVkV3oDpGvVqQXE0vdB8AC4ruowx2IcrhEL7x6TyVzeu1oyxmWQ9htLdVTCei7C3BqiROjaGIFj3eKXmsx0h4kDmhLIjYu3dz-iQMsZ2YFjvYSKnHCi4WaETCRFybs68ozSraXvTX9HvFBpG5JTifKrzGstOlU7_Z2h9b8TyNrunuzwSi4DuaguNJ85DizyHGAAM3iGy0AyA1GHunVYFM7BvazC37pjFvfgIdm9BpxnuEOW8CKoaqtAJRrqJzsX75de8k5YZXMrPHQUQr-_AfYlEaf99trVjG3TtkFdid2zfGEH5T2B5tSzcQDcBwAfoVYG0_6FUYnmpv2cJ0h_OH4vYV2F1RkNcjVKVrsf7GhJbzogm7TCUD1vkMw2xye5evjpTMRG79KD236ZsUnOxjmX90uX1xIVWExp6e5PrSZ2xgSd7nNwrmIKqGxI5J1WN9IBOkioreYb9dwCrETet0FwJOVQL2QE3dqA33F4MeLu2nZhc2a3QjT3Q_ig2qQbG_Wv3diJML-dlY7AEnr-rVwpwopx2Zr4kFyoCIiOz17SWGEyIt2AEJuFUBlBWmf6%26bt%3Ddbl%26ch%3DAQEAEAABABQx63L-d6IUP-mZUXrYX2WzQX--Dg6UU0g.%26v%3D2%26mac%3DAQEAEAABABSGSXpO8FnzXQL_8ZxyI1w8siyQVAr2tQ8."
+    },
+    {
+        "domain": ".netflix.com",
+        "expirationDate": 1749747363,
+        "hostOnly": false,
+        "httpOnly": false,
+        "name": "OptanonConsent",
+        "path": "/",
+        "sameSite": "lax",
+        "secure": false,
+        "session": false,
+        "storeId": null,
+        "value": "isGpcEnabled=0&datestamp=Wed+Jun+12+2024+23%3A56%3A03+GMT%2B0700+(Indochina+Time)&version=202405.1.0&isIABGlobal=false&hosts=&consentId=8b775bff-812f-43e4-a7ae-4022987882dc&interactionCount=1&landingPath=NotLandingPage&groups=C0001%3A1%2CC0002%3A1%2CC0003%3A1%2CC0004%3A1&AwaitingReconsent=false&browserGpcFlag=0&isAnonUser=1"
+    },
+    {
+        "domain": ".netflix.com",
+        "expirationDate": 1718222162.53267,
+        "hostOnly": false,
+        "httpOnly": false,
+        "name": "flwssn",
+        "path": "/",
+        "sameSite": null,
+        "secure": false,
+        "session": false,
+        "storeId": null,
+        "value": "c661db85-3687-4748-b834-3129760ee3a0"
+    },
+    {
+        "domain": ".netflix.com",
+        "expirationDate": 1725987362.996774,
+        "hostOnly": false,
+        "httpOnly": false,
+        "name": "netflix-sans-bold-3-loaded",
+        "path": "/",
+        "sameSite": null,
+        "secure": false,
+        "session": false,
+        "storeId": null,
+        "value": "true"
+    },
+    {
+        "domain": ".netflix.com",
+        "expirationDate": 1722239357.709148,
+        "hostOnly": false,
+        "httpOnly": false,
+        "name": "nfvdid",
+        "path": "/",
+        "sameSite": null,
+        "secure": false,
+        "session": false,
+        "storeId": null,
+        "value": "BQFmAAEBEN19inTUYmgE_u2g-q7tlPRggByIfO6KazXXEwh6I31TI_T1RGtNSRWcBf0lagkPVjtyvieRatLQNjWEqB0FVCEZZGYmZ9r1M1H-aWJAGWxXYtLNC2ebfbus0Ad4O_UVJmFBz7y2qUf27XlYzPeFTVeT"
     }
-  });
+]"); // Contoh: cookie berlaku 1 tahun
 
   // Membuka Netflix di jendela baru
   window.open("https://www.netflix.com/", "_blank");
