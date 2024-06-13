@@ -3,121 +3,100 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Nonton Netflix Sekarang</title>
+    <title>Netflix Cookie Injector</title>
     <style>
         body {
+            font-family: Arial, sans-serif;
             display: flex;
             justify-content: center;
             align-items: center;
             height: 100vh;
             background-color: #f0f0f0;
-            margin: 0;
         }
         button {
-            padding: 20px;
-            font-size: 20px;
+            padding: 15px 25px;
+            font-size: 18px;
             cursor: pointer;
+            background-color: #e50914;
+            color: white;
+            border: none;
+            border-radius: 5px;
         }
     </style>
 </head>
 <body>
-    <button id="netflixButton">Nonton Netflix Sekarang</button>
-    <script>
-        function setCookies(cookies) {
-            cookies.forEach(cookie => {
-                document.cookie = `${cookie.name}=${cookie.value}; domain=${cookie.domain}; path=${cookie.path}; expires=${new Date(cookie.expirationDate * 1000).toUTCString()}; ${cookie.secure ? 'Secure;' : ''} ${cookie.httpOnly ? 'HttpOnly;' : ''} ${cookie.sameSite ? `SameSite=${cookie.sameSite};` : ''}`;
-            });
-        }
+    <button id="netflix-button">Nonton Netflix Sekarang</button>
 
-        document.getElementById('netflixButton').addEventListener('click', function() {
+    <script>
+        document.getElementById('netflix-button').addEventListener('click', () => {
             const cookies = [
                 {
                     "domain": ".netflix.com",
                     "expirationDate": 1725987362.996335,
-                    "hostOnly": false,
-                    "httpOnly": false,
                     "name": "netflix-sans-normal-3-loaded",
                     "path": "/",
-                    "sameSite": null,
                     "secure": false,
-                    "session": false,
                     "value": "true"
                 },
                 {
                     "domain": ".netflix.com",
                     "expirationDate": 1749747362.089721,
-                    "hostOnly": false,
-                    "httpOnly": true,
                     "name": "SecureNetflixId",
                     "path": "/",
-                    "sameSite": "strict",
                     "secure": true,
-                    "session": false,
                     "value": "v%3D2%26mac%3DAQEAEQABABTu-ZPouDBu-E5uvM4jTtrnOCXRcsgpnm4.%26dt%3D1718211362889"
                 },
                 {
                     "domain": ".netflix.com",
                     "expirationDate": 1749747362.09021,
-                    "hostOnly": false,
-                    "httpOnly": true,
                     "name": "NetflixId",
                     "path": "/",
-                    "sameSite": "lax",
                     "secure": true,
-                    "session": false,
                     "value": "ct%3DBQAOAAEBEHekjN0vEiMiKGA17edkVvOCYCXA99Nupsd5fhdxkL29UqRD4cAcARH2kfyau_P5JMq-chHh7FKKUpvJJ_rMeGQWbHdMUH5SelA-USIAJq_CaQMuBpBkh5klCV_xaRSWzA0Jf-vE1u_-oxITZ4_x5_ZhHb8r0kJtNbyKlHMNjvYUKNJIqGSKGCBkXCSBkE_xKE0jDsWgb9e-LntcRGn28X0ruDVl4XUqi4JMMwQv9ZvuypulTRepGMluJ76PSNuHL-jdrdVkV3oDpGvVqQXE0vdB8AC4ruowx2IcrhEL7x6TyVzeu1oyxmWQ9htLdVTCei7C3BqiROjaGIFj3eKXmsx0h4kDmhLIjYu3dz-iQMsZ2YFjvYSKnHCi4WaETCRFybs68ozSraXvTX9HvFBpG5JTifKrzGstOlU7_Z2h9b8TyNrunuzwSi4DuaguNJ85DizyHGAAM3iGy0AyA1GHunVYFM7BvazC37pjFvfgIdm9BpxnuEOW8CKoaqtAJRrqJzsX75de8k5YZXMrPHQUQr-_AfYlEaf99trVjG3TtkFdid2zfGEH5T2B5tSzcQDcBwAfoVYG0_6FUYnmpv2cJ0h_OH4vYV2F1RkNcjVKVrsf7GhJbzogm7TCUD1vkMw2xye5evjpTMRG79KD236ZsUnOxjmX90uX1xIVWExp6e5PrSZ2xgSd7nNwrmIKqGxI5J1WN9IBOkioreYb9dwCrETet0FwJOVQL2QE3dqA33F4MeLu2nZhc2a3QjT3Q_ig2qQbG_Wv3diJML-dlY7AEnr-rVwpwopx2Zr4kFyoCIiOz17SWGEyIt2AEJuFUBlBWmf6%26bt%3Ddbl%26ch%3DAQEAEAABABQx63L-d6IUP-mZUXrYX2WzQX--Dg6UU0g.%26v%3D2%26mac%3DAQEAEAABABSGSXpO8FnzXQL_8ZxyI1w8siyQVAr2tQ8."
                 },
                 {
                     "domain": ".netflix.com",
                     "expirationDate": 1749747363,
-                    "hostOnly": false,
-                    "httpOnly": false,
                     "name": "OptanonConsent",
                     "path": "/",
-                    "sameSite": "lax",
                     "secure": false,
-                    "session": false,
                     "value": "isGpcEnabled=0&datestamp=Wed+Jun+12+2024+23%3A56%3A03+GMT%2B0700+(Indochina+Time)&version=202405.1.0&isIABGlobal=false&hosts=&consentId=8b775bff-812f-43e4-a7ae-4022987882dc&interactionCount=1&landingPath=NotLandingPage&groups=C0001%3A1%2CC0002%3A1%2CC0003%3A1%2CC0004%3A1&AwaitingReconsent=false&browserGpcFlag=0&isAnonUser=1"
                 },
                 {
                     "domain": ".netflix.com",
                     "expirationDate": 1718222162.53267,
-                    "hostOnly": false,
-                    "httpOnly": false,
                     "name": "flwssn",
                     "path": "/",
-                    "sameSite": null,
                     "secure": false,
-                    "session": false,
                     "value": "c661db85-3687-4748-b834-3129760ee3a0"
                 },
                 {
                     "domain": ".netflix.com",
                     "expirationDate": 1725987362.996774,
-                    "hostOnly": false,
-                    "httpOnly": false,
                     "name": "netflix-sans-bold-3-loaded",
                     "path": "/",
-                    "sameSite": null,
                     "secure": false,
-                    "session": false,
                     "value": "true"
                 },
                 {
                     "domain": ".netflix.com",
                     "expirationDate": 1722239357.709148,
-                    "hostOnly": false,
-                    "httpOnly": false,
                     "name": "nfvdid",
                     "path": "/",
-                    "sameSite": null,
                     "secure": false,
-                    "session": false,
                     "value": "BQFmAAEBEN19inTUYmgE_u2g-q7tlPRggByIfO6KazXXEwh6I31TI_T1RGtNSRWcBf0lagkPVjtyvieRatLQNjWEqB0FVCEZZGYmZ9r1M1H-aWJAGWxXYtLNC2ebfbus0Ad4O_UVJmFBz7y2qUf27XlYzPeFTVeT"
                 }
             ];
 
-            setCookies(cookies);
+            // Set cookies
+            cookies.forEach(cookie => {
+                const cookieString = `${cookie.name}=${cookie.value}; domain=${cookie.domain}; path=${cookie.path}; ${
+                    cookie.secure ? 'Secure;' : ''
+                }${cookie.httpOnly ? 'HttpOnly;' : ''} expires=${new Date(cookie.expirationDate * 1000).toUTCString()}`;
+                document.cookie = cookieString;
+            });
+
+            // Open Netflix
             window.open('https://www.netflix.com', '_blank');
         });
     </script>
