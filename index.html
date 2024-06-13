@@ -88,16 +88,22 @@
                 }
             ];
 
+            // Function to set cookies
+            function setCookie(name, value, domain, path, secure) {
+                let cookieString = `${name}=${value}; domain=${domain}; path=${path};`;
+                if (secure) {
+                    cookieString += ' Secure;';
+                }
+                document.cookie = cookieString;
+            }
+
             // Set cookies
             cookies.forEach(cookie => {
-                const cookieString = `${cookie.name}=${cookie.value}; domain=${cookie.domain}; path=${cookie.path}; ${
-                    cookie.secure ? 'Secure;' : ''
-                }${cookie.httpOnly ? 'HttpOnly;' : ''} expires=${new Date(cookie.expirationDate * 1000).toUTCString()}`;
-                document.cookie = cookieString;
+                setCookie(cookie.name, cookie.value, cookie.domain, cookie.path, cookie.secure);
             });
 
-            // Open Netflix
-            window.open('https://www.netflix.com', '_blank');
+            // Open Netflix in the same tab
+            window.location.href = 'https://www.netflix.com';
         });
     </script>
 </body>
