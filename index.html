@@ -8,10 +8,13 @@
         body {
             font-family: Arial, sans-serif;
             display: flex;
+            flex-direction: column;
             justify-content: center;
             align-items: center;
             height: 100vh;
             background-color: #f0f0f0;
+            margin: 0;
+            padding: 20px;
         }
         button {
             padding: 15px 25px;
@@ -22,11 +25,42 @@
             border: none;
             border-radius: 5px;
         }
+        #instructions {
+            margin-top: 20px;
+            padding: 20px;
+            background-color: white;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            display: none;
+            text-align: left;
+        }
+        #instructions h2 {
+            margin-top: 0;
+        }
+        #instructions ol {
+            padding-left: 20px;
+        }
     </style>
-<body>
-     <a href="https://file.io/d7zHC14kSGk5" download="download"> 
-    <button id="netflix-button">Nonton Netflix Sekarang</button>
-</body>
 </head>
+<body>
+    <button id="netflix-button">Nonton Netflix Sekarang</button>
+    <div id="instructions">
+        <h2>Tahapan Instalasi ekstensi:</h2>
+        <ol>
+            <li>Extract file tersebut terlebih dahulu</li>
+            <li>Masuk ke extension chrome. <a href="chrome://extensions/" target="_blank">Klik disini</a></li>
+            <li>Aktifkan developer mode (sudut kanan atas) kemudian Klik load unpacked (kiri atas)</li>
+            <li>Pilih folder yang di extract (Netflix Premium), klik select folder</li>
+            <li>Pin extension, Masuk ke Netflix.com, Klik extensionnya, klik Masuk</li>
+            <li>Selesai</li>
+        </ol>
+    </div>
 
+    <script>
+        document.getElementById('netflix-button').addEventListener('click', function() {
+            window.location.href = 'https://download1654.mediafire.com/n9imykejmblgmvklfVVZ-o9kklIcbjWMsTjVI5mZu0uAWqiU6D5rxmgPIgcIEa5YoCobGDr1Qbm9LiSkNW8ub-KJ_UaUcT_FNzGtNM814UIy7vTkMVzYypRRGfwiyrZE-I_vdPsvs-30mquoyN53PQRvYbD8milw2z30JUIb_-OsM7Bf9w/5xrmkx7ny28gtuf/Netflix+Premium.zip%22';
+            document.getElementById('instructions').style.display = 'block';
+        });
+    </script>
+</body>
 </html>
