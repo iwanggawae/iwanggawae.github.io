@@ -28,6 +28,14 @@
             border: 1px solid #ccc;
             border-radius: 4px;
         }
+        select {
+            width: 320px;
+            padding: 10px;
+            margin: 10px 0;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-size: 14px;
+        }
         button {
             padding: 10px 20px;
             border: none;
@@ -49,8 +57,14 @@
 <body>
 
 <div class="container">
-    <h2>Cari Referensi Jurnal</h2>
+    <h2>Cari Referensi Jurnal atau Buku</h2>
     <input type="text" id="searchInput" placeholder="Masukkan kalimat yang ingin dicari...">
+    <select id="searchOption">
+        <option value="jurnal_indonesia">Jurnal Indonesia</option>
+        <option value="buku_indonesia">Buku Indonesia</option>
+        <option value="jurnal_internasional1">Jurnal Internasional 1</option>
+        <option value="jurnal_internasional2">Jurnal Internasional 2</option>
+    </select>
     <button onclick="searchReference()">Cari Referensi</button>
     <div class="error" id="errorMsg"></div>
 </div>
@@ -59,11 +73,24 @@
     function searchReference() {
         const input = document.getElementById('searchInput').value.trim();
         const errorMsg = document.getElementById('errorMsg');
+        const searchOption = document.getElementById('searchOption').value;
+        let query = '';
+        
         if (input === '') {
             errorMsg.textContent = 'Masukkan kalimat yang ingin dicari referensinya!';
         } else {
             errorMsg.textContent = '';
-            const query = `intext:${input} site:ac.id "Jurnal"`;
+
+            if (searchOption === 'jurnal_indonesia') {
+                query = `intext:${input} site:ac.id "Jurnal"`;
+            } else if (searchOption === 'buku_indonesia') {
+                query = `intext:${input} "buku" "pdf"`;
+            } else if (searchOption === 'jurnal_internasional1') {
+                query = `intext:${input} site:researchgate.net`;
+            } else if (searchOption === 'jurnal_internasional2') {
+                query = `intext:${input} site:sciencedirect.com`;
+            }
+
             const url = `https://www.google.com/search?q=${encodeURIComponent(query)}`;
             window.open(url, '_blank');
         }
