@@ -20,16 +20,17 @@
             padding: 20px;
             border-radius: 8px;
             box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+            width: 350px;
         }
         input[type="text"] {
-            width: 300px;
+            width: 100%;
             padding: 10px;
             margin: 10px 0;
             border: 1px solid #ccc;
             border-radius: 4px;
         }
         select {
-            width: 320px;
+            width: 100%;
             padding: 10px;
             margin: 10px 0;
             border: 1px solid #ccc;
@@ -44,6 +45,7 @@
             color: white;
             cursor: pointer;
             transition: background-color 0.3s;
+            width: 100%;
         }
         button:hover {
             background-color: #0056b3;
@@ -51,6 +53,19 @@
         .error {
             color: red;
             margin-top: 10px;
+        }
+        .notes {
+            margin-top: 20px;
+            font-size: 12px;
+            font-style: italic;
+            text-align: left;
+        }
+        .scihub-link {
+            color: #007bff;
+            text-decoration: none;
+        }
+        .scihub-link:hover {
+            text-decoration: underline;
         }
     </style>
 </head>
@@ -67,6 +82,11 @@
     </select>
     <button onclick="searchReference()">Cari Referensi</button>
     <div class="error" id="errorMsg"></div>
+    <div class="notes">
+        <p>1. Untuk jurnal internasional, masukkan kata kunci atau kalimat dalam bahasa Inggris.</p>
+        <p>2. Jurnal internasional umumnya berbayar, silahkan mencari jurnal yang open access (gratis) atau gunakan 
+        <a href="https://sci-hub.se" target="_blank" class="scihub-link">Sci-Hub</a> untuk mendownload jurnal yang berbayar.</p>
+    </div>
 </div>
 
 <script>
