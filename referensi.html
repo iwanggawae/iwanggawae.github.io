@@ -81,6 +81,7 @@
     <select id="searchOption">
         <option value="jurnal_indonesia">Jurnal Indonesia</option>
         <option value="buku_indonesia">Buku Indonesia</option>
+        <option value="buku_skripsi_indonesia">Buku & Skripsi Indonesia</option>
         <option value="jurnal_internasional1">Jurnal Internasional 1</option>
         <option value="jurnal_internasional2">Jurnal Internasional 2</option>
     </select>
@@ -109,6 +110,8 @@
                 query = `intext:${input} site:ac.id "Jurnal"`;
             } else if (searchOption === 'buku_indonesia') {
                 query = `intext:${input} "buku" "pdf"`;
+            } else if (searchOption === 'buku_skripsi_indonesia') {
+                query = `intext:${input} "buku" "pdf" inurl:digilib`;
             } else if (searchOption === 'jurnal_internasional1') {
                 query = `intext:${input} site:researchgate.net`;
             } else if (searchOption === 'jurnal_internasional2') {
