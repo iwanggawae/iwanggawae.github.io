@@ -100,7 +100,7 @@
         const errorMsg = document.getElementById('errorMsg');
         const searchOption = document.getElementById('searchOption').value;
         let query = '';
-        
+
         if (input === '') {
             errorMsg.textContent = 'Masukkan kalimat yang ingin dicari referensinya!';
         } else {
@@ -118,7 +118,7 @@
                 query = `intext:${input} site:sciencedirect.com`;
             }
 
-            const url = `https://www.google.com/search?q=${encodeURIComponent(query)}`;
+            const url = `https://cse.google.com/cse?cx=77ce6369ebe934811#gsc.tab=0&gsc.q=${encodeURIComponent(query)}&gsc.sort=`;
             window.open(url, '_blank');
         }
     }
