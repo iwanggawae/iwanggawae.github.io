@@ -22,8 +22,9 @@
             box-shadow: 0 4px 8px rgba(0,0,0,0.1);
             width: 90%;
             max-width: 400px;
+            display: none;
         }
-        input[type="text"] {
+        input[type="text"], input[type="password"] {
             width: 100%;
             padding: 10px;
             margin: 10px 0;
@@ -75,7 +76,14 @@
 </head>
 <body>
 
-<div class="container">
+<div class="password-container">
+    <h2>Masukkan Password</h2>
+    <input type="password" id="passwordInput" placeholder="Masukkan password...">
+    <button onclick="checkPassword()">Submit</button>
+    <div class="error" id="passwordError"></div>
+</div>
+
+<div class="container" id="mainContainer">
     <h2>Cari Referensi Jurnal atau Buku</h2>
     <input type="text" id="searchInput" placeholder="Masukkan kalimat yang ingin dicari...">
     <select id="searchOption">
@@ -95,6 +103,20 @@
 </div>
 
 <script>
+    function checkPassword() {
+        const passwordInput = document.getElementById('passwordInput').value;
+        const passwordError = document.getElementById('passwordError');
+        const mainContainer = document.getElementById('mainContainer');
+        const password = "jagodigital";
+
+        if (passwordInput === password) {
+            document.querySelector('.password-container').style.display = 'none';
+            mainContainer.style.display = 'block';
+        } else {
+            passwordError.textContent = 'Password salah, coba lagi.';
+        }
+    }
+
     function searchReference() {
         const input = document.getElementById('searchInput').value.trim();
         const errorMsg = document.getElementById('errorMsg');
