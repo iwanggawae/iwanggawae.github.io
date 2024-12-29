@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Cari Referensi</title>
     <style>
+        /* Gaya CSS tetap sama */
         body {
             font-family: Arial, sans-serif;
             display: flex;
@@ -24,7 +25,7 @@
             max-width: 400px;
             display: none;
         }
-        input[type="text"], input[type="password"] {
+        input[type="text"], input[type="password"], input[type="number"] {
             width: 100%;
             padding: 10px;
             margin: 10px 0;
@@ -93,6 +94,7 @@
         <option value="jurnal_internasional1">Jurnal Internasional 1</option>
         <option value="jurnal_internasional2">Jurnal Internasional 2</option>
     </select>
+    <input type="number" id="yearInput" placeholder="Masukkan tahun (opsional)" min="1900" max="2099">
     <button onclick="searchReference()">Cari Referensi</button>
     <div class="error" id="errorMsg"></div>
     <div class="notes">
@@ -121,6 +123,7 @@
 
     function searchReference() {
         const input = document.getElementById('searchInput').value.trim();
+        const year = document.getElementById('yearInput').value.trim();
         const errorMsg = document.getElementById('errorMsg');
         const searchOption = document.getElementById('searchOption').value;
         let query = '';
@@ -140,6 +143,10 @@
                 query = `intext:${input} site:researchgate.net`;
             } else if (searchOption === 'jurnal_internasional2') {
                 query = `intext:${input} site:sciencedirect.com`;
+            }
+
+            if (year) {
+                query += ` after:${year} before:${parseInt(year) + 1}`;
             }
 
             const url = `https://cse.google.com/cse?cx=77ce6369ebe934811#gsc.tab=0&gsc.q=${encodeURIComponent(query)}&gsc.sort=`;
