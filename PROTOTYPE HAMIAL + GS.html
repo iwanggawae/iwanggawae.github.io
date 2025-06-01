@@ -1,0 +1,721 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PROTOTYPE Kasir HAMIAL.ID (Google Sheets)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
+    <script type="module">
+        // URL Web App Google Apps Script Anda akan dimasukkan di sini
+        const GOOGLE_APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyqKE-hEYoL4_TkuosqyI3uJbhc71q6VhxR66g8ayw6XaLGyVLahwbCVRlk2V-JXv15/exec'; 
+
+        // Elemen UI
+        const productForm = document.getElementById('productForm');
+        const productNameInput = document.getElementById('productName');
+        const productCodeInput = document.getElementById('productCode');
+        const productPriceInput = document.getElementById('productPrice');
+        const productStockInput = document.getElementById('productStock');
+        const productsTableBody = document.getElementById('productsTableBody');
+        const cartItemsDiv = document.getElementById('cartItems');
+        const cartTotalSpan = document.getElementById('cartTotal');
+        const paymentMethodSelect = document.getElementById('paymentMethod');
+        const confirmPaymentButton = document.getElementById('confirmPaymentButton');
+        const productIdInput = document.getElementById('productId');
+        const formTitle = document.getElementById('formTitle');
+        const cancelEditButton = document.getElementById('cancelEditButton');
+        const messageModal = document.getElementById('messageModal');
+        const messageText = document.getElementById('messageText');
+        const closeMessageModalButton = document.getElementById('closeMessageModalButton');
+        const searchProductInput = document.getElementById('searchProductInput');
+        const salesReportTableBody = document.getElementById('salesReportTableBody');
+        const exportSalesReportButton = document.getElementById('exportSalesReportButton');
+        const loadingOverlay = document.getElementById('loadingOverlay');
+
+        // Elemen UI untuk Scan QR
+        const scanQrButton = document.getElementById('scanQrButton');
+        const qrScannerContainer = document.getElementById('qrScannerContainer');
+        const qrVideo = document.getElementById('qrVideo');
+        const stopScanButton = document.getElementById('stopScanButton');
+        const qrScanFeedback = document.getElementById('qrScanFeedback');
+
+
+        // Konfirmasi Modal
+        const confirmationModal = document.getElementById('confirmationModal');
+        const confirmationMessage = document.getElementById('confirmationMessage');
+        const confirmActionButton = document.getElementById('confirmActionButton');
+        const cancelActionButton = document.getElementById('cancelActionButton');
+        let currentConfirmAction = null;
+
+
+        let cart = []; 
+        let allProducts = []; 
+        let videoStream = null; // Untuk menyimpan stream kamera
+        let animationFrameId = null; // Untuk mengontrol loop pemindaian QR
+        
+        function showLoading(show) {
+            loadingOverlay.classList.toggle('hidden', !show);
+        }
+
+        function showMessage(message, isSuccess = true) {
+            messageText.textContent = message;
+            messageText.classList.toggle('text-red-700', !isSuccess);
+            messageText.classList.toggle('text-green-700', isSuccess);
+            messageModal.classList.remove('hidden');
+        }
+        closeMessageModalButton.addEventListener('click', () => messageModal.classList.add('hidden'));
+
+        function showConfirmationModal(message, onConfirm) {
+            confirmationMessage.textContent = message;
+            currentConfirmAction = onConfirm;
+            confirmationModal.classList.remove('hidden');
+        }
+
+        confirmActionButton.addEventListener('click', () => {
+            if (currentConfirmAction) currentConfirmAction();
+            confirmationModal.classList.add('hidden');
+            currentConfirmAction = null;
+        });
+
+        cancelActionButton.addEventListener('click', () => {
+            confirmationModal.classList.add('hidden');
+            currentConfirmAction = null;
+        });
+
+        async function fetchFromAppsScript(action, method = 'GET', payload = null) {
+            if (GOOGLE_APPS_SCRIPT_URL === 'MASUKKAN_URL_WEB_APP_GOOGLE_APPS_SCRIPT_ANDA_DI_SINI' || !GOOGLE_APPS_SCRIPT_URL) {
+                showMessage("URL Google Apps Script belum dikonfigurasi dengan benar.", false);
+                throw new Error("URL Google Apps Script belum dikonfigurasi dengan benar.");
+            }
+            showLoading(true);
+            try {
+                let url = GOOGLE_APPS_SCRIPT_URL;
+                const options = { method, redirect: 'follow' };
+
+                if (method === 'GET') {
+                    url += `?action=${action}`;
+                    if (payload && typeof payload === 'object') {
+                        const queryParams = new URLSearchParams(payload);
+                        if (queryParams.toString()) url += `&${queryParams.toString()}`;
+                    }
+                } else if (method === 'POST') {
+                    options.body = JSON.stringify({ ...payload, action });
+                }
+                
+                const response = await fetch(url, options);
+                if (!response.ok) {
+                    let errorDetail = `HTTP status ${response.status}: ${response.statusText}`;
+                    try {
+                        const text = await response.text(); 
+                        errorDetail += `. Server Response: ${text.substring(0, 200)}`; 
+                    } catch (e) { /* abaikan */ }
+                    console.error("Fetch error response:", response);
+                    throw new Error(`Gagal menghubungi server. ${errorDetail}`);
+                }
+                const result = await response.json();
+                if (result.status === "error" || result.error) { 
+                    throw new Error(result.error || "Terjadi kesalahan pada server Apps Script.");
+                }
+                return result.data;
+            } catch (error) {
+                console.error('Error in fetchFromAppsScript:', error.message, error.stack || '');
+                showMessage(error.message.includes("Gagal menghubungi server") || error.message.includes("Terjadi kesalahan pada server Apps Script") ? error.message : `Error: ${error.message}`, false);
+                throw error;
+            } finally {
+                showLoading(false);
+            }
+        }
+        
+        async function initializeAppWithGoogleSheets() {
+            console.log("Initializing app with Google Sheets...");
+            await loadProductsFromGoogleSheet();
+            await loadSalesReportFromGoogleSheet();
+            console.log("App initialized. Products loaded:", allProducts.length);
+        }
+
+        async function loadProductsFromGoogleSheet() {
+            try {
+                const products = await fetchFromAppsScript('getProducts');
+                allProducts = products || []; 
+                filterAndDisplayProducts();
+            } catch (error) {
+                allProducts = [];
+                filterAndDisplayProducts();
+            }
+        }
+
+        function displayProducts(productsToDisplay) {
+            productsTableBody.innerHTML = '';
+            if (!Array.isArray(productsToDisplay) || productsToDisplay.length === 0) {
+                productsTableBody.innerHTML = `<tr><td colspan="5" class="py-2 px-4 text-center">Belum ada produk atau gagal memuat.</td></tr>`;
+                return;
+            }
+            productsToDisplay.forEach((product) => {
+                const row = productsTableBody.insertRow();
+                const productId = product.id; 
+                row.innerHTML = `
+                    <td class="border px-4 py-2">${product.code || '-'}</td>
+                    <td class="border px-4 py-2">${product.name}</td>
+                    <td class="border px-4 py-2">Rp ${parseFloat(product.price || 0).toLocaleString('id-ID')}</td>
+                    <td class="border px-4 py-2">${product.stock || 0}</td>
+                    <td class="border px-4 py-2">
+                        <button class="bg-yellow-500 hover:bg-yellow-700 text-white font-bold py-1 px-2 rounded text-sm edit-btn" data-id="${productId}">Edit</button>
+                        <button class="bg-red-500 hover:bg-red-700 text-white font-bold py-1 px-2 rounded text-sm delete-btn ml-1" data-id="${productId}">Hapus</button>
+                        <button class="bg-green-500 hover:bg-green-700 text-white font-bold py-1 px-2 rounded text-sm add-to-cart-btn ml-1" data-id="${productId}">+ Keranjang</button>
+                    </td>
+                `;
+            });
+        }
+        
+        function filterAndDisplayProducts() {
+            const searchTerm = searchProductInput.value.toLowerCase();
+            if (!searchTerm) {
+                displayProducts(allProducts);
+                return;
+            }
+            const filteredProducts = allProducts.filter(product => 
+                (product.name && product.name.toLowerCase().includes(searchTerm)) ||
+                (product.code && product.code.toLowerCase().includes(searchTerm))
+            );
+            displayProducts(filteredProducts);
+        }
+
+        searchProductInput.addEventListener('input', filterAndDisplayProducts);
+
+        productForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const name = productNameInput.value.trim();
+            const code = productCodeInput.value.trim();
+            const price = parseFloat(productPriceInput.value);
+            const stock = parseInt(productStockInput.value);
+            const id = productIdInput.value; 
+
+            if (!name || !code || isNaN(price) || isNaN(stock) || price <= 0 || stock < 0) {
+                showMessage("Mohon isi semua field (Nama, Kode, Harga, Stok) dengan benar.", false);
+                return;
+            }
+            
+            const productData = { name, code, price, stock };
+
+            try {
+                if (id) { 
+                    productData.id = id; 
+                    const existingProductWithCode = allProducts.find(p => p.code === code && p.id !== id);
+                    if (existingProductWithCode) {
+                        showMessage(`Kode barang "${code}" sudah digunakan untuk produk "${existingProductWithCode.name}". Harap gunakan kode lain.`, false);
+                        return;
+                    }
+                    const updatedProduct = await fetchFromAppsScript('editProduct', 'POST', productData);
+                    const index = allProducts.findIndex(p => p.id === updatedProduct.id);
+                    if (index !== -1) allProducts[index] = updatedProduct;
+                    showMessage("Produk berhasil diperbarui di Google Sheet.", true);
+                } else { 
+                    const existingProductWithCode = allProducts.find(p => p.code === code);
+                    if (existingProductWithCode) {
+                        showMessage(`Kode barang "${code}" sudah digunakan untuk produk "${existingProductWithCode.name}". Harap gunakan kode lain.`, false);
+                        return;
+                    }
+                    const newProduct = await fetchFromAppsScript('addProduct', 'POST', productData);
+                    allProducts.push(newProduct); 
+                    showMessage("Produk berhasil ditambahkan ke Google Sheet.", true);
+                }
+                filterAndDisplayProducts();
+                productForm.reset();
+                productIdInput.value = '';
+                formTitle.textContent = "Tambah Produk Baru";
+                cancelEditButton.classList.add('hidden');
+            } catch (error) {
+                await loadProductsFromGoogleSheet(); 
+            }
+        });
+
+        productsTableBody.addEventListener('click', async (e) => {
+            const target = e.target;
+            const id = target.dataset.id; 
+            if (!id) return; 
+
+            if (target.classList.contains('edit-btn')) {
+                const productToEdit = allProducts.find(p => p.id === id);
+                if (productToEdit) {
+                    productNameInput.value = productToEdit.name;
+                    productCodeInput.value = productToEdit.code || '';
+                    productPriceInput.value = productToEdit.price;
+                    productStockInput.value = productToEdit.stock;
+                    productIdInput.value = productToEdit.id;
+                    formTitle.textContent = "Edit Produk";
+                    cancelEditButton.classList.remove('hidden');
+                    productNameInput.focus();
+                } else { showMessage("Produk tidak ditemukan untuk diedit.", false); }
+            } else if (target.classList.contains('delete-btn')) {
+                const productToDelete = allProducts.find(p => p.id === id);
+                if (productToDelete) {
+                    showConfirmationModal(`Apakah Anda yakin ingin menghapus produk "${productToDelete.name}" dari Google Sheet?`, async () => {
+                        try {
+                            await fetchFromAppsScript('deleteProduct', 'POST', { id: productToDelete.id });
+                            allProducts = allProducts.filter(p => p.id !== productToDelete.id);
+                            filterAndDisplayProducts();
+                            showMessage("Produk berhasil dihapus dari Google Sheet.", true);
+                        } catch (error) { await loadProductsFromGoogleSheet(); }
+                    });
+                }
+            } else if (target.classList.contains('add-to-cart-btn')) {
+                const product = allProducts.find(p => p.id === id);
+                if (product) {
+                     addProductToCart(product.id, product.name, product.code, parseFloat(product.price), parseInt(product.stock));
+                } else { showMessage("Produk tidak ditemukan di daftar.", false); }
+            }
+        });
+        
+        cancelEditButton.addEventListener('click', () => {
+            productForm.reset();
+            productIdInput.value = '';
+            formTitle.textContent = "Tambah Produk Baru";
+            cancelEditButton.classList.add('hidden');
+        });
+
+        function addProductToCart(id, name, code, price, currentStock) {
+            if (currentStock <= 0) {
+                showMessage(`Stok produk ${name} (${code}) habis.`, false); return;
+            }
+            const existingItem = cart.find(item => item.id === id);
+            if (existingItem) {
+                if (existingItem.quantity < currentStock) existingItem.quantity++;
+                else { showMessage(`Stok produk ${name} (${code}) tidak mencukupi. Sisa: ${currentStock}, diminta: ${existingItem.quantity + 1}`, false); return; }
+            } else {
+                cart.push({ id, name, code, price, quantity: 1, stockAtSaleTime: currentStock });
+            }
+            updateCartDisplay();
+        }
+
+        function updateCartDisplay() {
+            cartItemsDiv.innerHTML = '';
+            let total = 0;
+            if (cart.length === 0) {
+                cartItemsDiv.innerHTML = '<p class="text-gray-500">Keranjang kosong.</p>';
+            } else {
+                cart.forEach((item, index) => {
+                    const itemDiv = document.createElement('div');
+                    itemDiv.classList.add('flex', 'justify-between', 'items-center', 'py-2', 'border-b');
+                    itemDiv.innerHTML = `
+                        <div>
+                            <p class="font-semibold">${item.name} (${item.code || 'N/A'})</p>
+                            <p class="text-sm text-gray-600">Rp ${item.price.toLocaleString('id-ID')} x ${item.quantity}</p>
+                        </div>
+                        <div>
+                            <button class="bg-red-500 hover:bg-red-700 text-white text-xs py-1 px-2 rounded remove-from-cart-btn" data-index="${index}">Hapus</button>
+                        </div>`;
+                    cartItemsDiv.appendChild(itemDiv);
+                    total += item.price * item.quantity;
+                });
+            }
+            cartTotalSpan.textContent = `Rp ${total.toLocaleString('id-ID')}`;
+        }
+
+        cartItemsDiv.addEventListener('click', (e) => {
+            if (e.target.classList.contains('remove-from-cart-btn')) {
+                const index = parseInt(e.target.dataset.index);
+                cart.splice(index, 1);
+                updateCartDisplay();
+            }
+        });
+
+        confirmPaymentButton.addEventListener('click', async () => {
+            if (cart.length === 0) { showMessage("Keranjang kosong.", false); return; }
+            const paymentMethod = paymentMethodSelect.value;
+            if (!paymentMethod) { showMessage("Silakan pilih metode pembayaran.", false); return; }
+
+            const itemsToProcess = cart.map(item => ({
+                productId: item.id, quantitySold: item.quantity, name: item.name, code: item.code, price: item.price
+            }));
+            const totalAmount = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
+            const saleData = { items: itemsToProcess, paymentMethod, totalAmount, timestamp: new Date().toISOString() };
+
+            try {
+                const result = await fetchFromAppsScript('processSale', 'POST', saleData);
+                showMessage(result.message || "Pembayaran berhasil diproses.", true);
+                await loadProductsFromGoogleSheet();
+                await loadSalesReportFromGoogleSheet();
+                cart = []; updateCartDisplay();
+            } catch (error) {
+                showMessage(`Gagal memproses penjualan: ${error.message}.`, false);
+                await loadProductsFromGoogleSheet(); 
+            }
+        });
+
+        async function loadSalesReportFromGoogleSheet() {
+            try {
+                const sales = await fetchFromAppsScript('getSales');
+                const transactions = sales || [];
+                salesReportTableBody.innerHTML = '';
+                if (transactions.length === 0) {
+                    salesReportTableBody.innerHTML = '<tr><td colspan="5" class="py-2 px-4 text-center">Belum ada transaksi.</td></tr>';
+                    return;
+                }
+                window.currentSalesReportData = transactions; 
+                transactions.forEach((report) => {
+                    let itemsSummary = report.items_display_summary || 'Detail tidak tersedia';
+                     // Jika items_display_summary tidak ada, coba parse dari items_raw_json
+                    if (itemsSummary === 'Detail tidak tersedia' && report.items_raw_json) {
+                        try {
+                            const items = JSON.parse(report.items_raw_json);
+                            itemsSummary = items.map(item => `${item.name} (${item.quantity})`).join(', ');
+                        } catch (e) { console.error("Gagal parse items_raw_json untuk display:", e); }
+                    }
+
+                    const row = salesReportTableBody.insertRow();
+                    row.innerHTML = `
+                        <td class="border px-4 py-2">${new Date(report.timestamp).toLocaleString('id-ID')}</td>
+                        <td class="border px-4 py-2">${report.transaction_id}</td>
+                        <td class="border px-4 py-2">${itemsSummary}</td>
+                        <td class="border px-4 py-2">Rp ${parseFloat(report.total_amount || 0).toLocaleString('id-ID')}</td>
+                        <td class="border px-4 py-2">${report.payment_method}</td>`;
+                });
+            } catch (error) {
+                salesReportTableBody.innerHTML = '<tr><td colspan="5" class="py-2 px-4 text-center text-red-500">Gagal memuat laporan.</td></tr>';
+            }
+        }
+        
+        exportSalesReportButton.addEventListener('click', async () => {
+            showLoading(true);
+            try {
+                const salesDataForExport = window.currentSalesReportData || await fetchFromAppsScript('getSales'); 
+                if (!salesDataForExport || salesDataForExport.length === 0) {
+                    showMessage("Tidak ada data laporan untuk diekspor.", false); showLoading(false); return;
+                }
+                const formattedData = salesDataForExport.flatMap(transaction => {
+                    let itemsDetails = [];
+                    // Prioritaskan items_raw_json untuk detail ekspor
+                    if (typeof transaction.items_raw_json === 'string') {
+                        try { itemsDetails = JSON.parse(transaction.items_raw_json); } catch (e) { /* biarkan kosong */ }
+                    } else if (Array.isArray(transaction.items_raw_json)) { 
+                        itemsDetails = transaction.items_raw_json;
+                    } else if (typeof transaction.items_json === 'string') { // Fallback ke items_json (jika ada dari versi lama)
+                         try { itemsDetails = JSON.parse(transaction.items_json); } catch (e) { /* biarkan kosong */ }
+                    }
+
+
+                    if (itemsDetails.length === 0) { 
+                        return [{
+                            'ID Transaksi': transaction.transaction_id,
+                            'Timestamp': new Date(transaction.timestamp).toLocaleString('id-ID'),
+                            'Kode Produk': 'N/A',
+                            'Nama Produk': transaction.items_display_summary || transaction.items_summary || 'Ringkasan Transaksi',
+                            'Jumlah': 1, 
+                            'Harga Satuan': transaction.total_amount,
+                            'Subtotal': transaction.total_amount,
+                            'Total Transaksi': transaction.total_amount,
+                            'Metode Pembayaran': transaction.payment_method,
+                        }];
+                    }
+                    return itemsDetails.map(item => ({
+                        'ID Transaksi': transaction.transaction_id,
+                        'Timestamp': new Date(transaction.timestamp).toLocaleString('id-ID'),
+                        'Kode Produk': item.code || 'N/A',
+                        'Nama Produk': item.name,
+                        'Jumlah': item.quantity,
+                        'Harga Satuan': item.price,
+                        'Subtotal': (item.quantity || 0) * (item.price || 0),
+                        'Total Transaksi': transaction.total_amount,
+                        'Metode Pembayaran': transaction.payment_method,
+                    }));
+                });
+                
+                if (formattedData.length === 0) {
+                    showMessage("Tidak ada item transaksi valid untuk diekspor.", false); showLoading(false); return;
+                }
+                const worksheet = XLSX.utils.json_to_sheet(formattedData);
+                const workbook = XLSX.utils.book_new();
+                XLSX.utils.book_append_sheet(workbook, worksheet, "Laporan Penjualan");
+                const colWidths = [
+                    {wch: 25}, {wch: 20}, {wch: 15}, {wch: 30}, {wch: 10}, {wch: 15},
+                    {wch: 15}, {wch: 18}, {wch: 20}
+                ];
+                worksheet['!cols'] = colWidths;
+                XLSX.writeFile(workbook, "Laporan_Penjualan_Google_Sheet.xlsx");
+                showMessage("Laporan penjualan berhasil diekspor!", true);
+            } catch (error) { /* ditangani fetchFromAppsScript */ } 
+            finally { showLoading(false); }
+        });
+
+        // --- Logika Scan QR ---
+        function startQrScan() {
+            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                showMessage("Kamera tidak didukung oleh browser ini.", false);
+                return;
+            }
+            qrScannerContainer.classList.remove('hidden');
+            qrScanFeedback.textContent = "Arahkan kamera ke QR Code...";
+
+            navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } })
+                .then(function(stream) {
+                    videoStream = stream;
+                    qrVideo.srcObject = stream;
+                    qrVideo.setAttribute("playsinline", true); // Untuk iOS
+                    qrVideo.play();
+                    scanQrCode(); // Mulai loop pemindaian
+                })
+                .catch(function(err) {
+                    console.error("Error mengakses kamera: ", err);
+                    qrScanFeedback.textContent = "Gagal mengakses kamera: " + err.message;
+                    showMessage("Gagal mengakses kamera: " + err.name, false);
+                    stopQrScan(); // Pastikan container disembunyikan jika gagal
+                });
+        }
+
+        function stopQrScan() {
+            if (animationFrameId) {
+                cancelAnimationFrame(animationFrameId);
+                animationFrameId = null;
+            }
+            if (videoStream) {
+                videoStream.getTracks().forEach(track => track.stop());
+                videoStream = null;
+            }
+            qrVideo.srcObject = null;
+            qrScannerContainer.classList.add('hidden');
+            qrScanFeedback.textContent = "";
+        }
+
+        function scanQrCode() {
+            if (qrVideo.readyState === qrVideo.HAVE_ENOUGH_DATA) {
+                const canvasElement = document.createElement('canvas');
+                const canvas = canvasElement.getContext('2d');
+                canvasElement.height = qrVideo.videoHeight;
+                canvasElement.width = qrVideo.videoWidth;
+                canvas.drawImage(qrVideo, 0, 0, canvasElement.width, canvasElement.height);
+                const imageData = canvas.getImageData(0, 0, canvasElement.width, canvasElement.height);
+                
+                const code = jsQR(imageData.data, imageData.width, imageData.height, {
+                    inversionAttempts: "dontInvert",
+                });
+
+                if (code) {
+                    qrScanFeedback.textContent = `QR Code terdeteksi: ${code.data}`;
+                    searchProductInput.value = code.data;
+                    filterAndDisplayProducts(); // Langsung filter
+                    stopQrScan();
+                    showMessage(`Produk dengan kode "${code.data}" dicari.`, true);
+                } else {
+                    qrScanFeedback.textContent = "Memindai QR Code...";
+                }
+            }
+            if (videoStream) { // Hanya lanjutkan jika stream masih aktif
+                animationFrameId = requestAnimationFrame(scanQrCode);
+            }
+        }
+
+        scanQrButton.addEventListener('click', startQrScan);
+        stopScanButton.addEventListener('click', stopQrScan);
+        // --- Akhir Logika Scan QR ---
+        
+        document.addEventListener('DOMContentLoaded', initializeAppWithGoogleSheets);
+
+    </script>
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 10px; }
+        ::-webkit-scrollbar-thumb { background: #888; border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: #555; }
+        .modal, .loading-overlay, .confirmation-modal { transition: opacity 0.3s ease-in-out; }
+        .loading-overlay, .qr-scanner-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.7);
+            z-index: 9999;
+            display: flex;
+            flex-direction: column; /* Untuk menata video dan tombol stop */
+            align-items: center;
+            justify-content: center;
+            padding: 10px;
+        }
+        .spinner {
+            border: 4px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top: 4px solid #fff;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        #qrVideo {
+            max-width: 80%;
+            max-height: 70vh; /* Batasi tinggi video */
+            border: 2px solid white;
+            border-radius: 8px;
+            background-color: #333; /* Latar belakang jika video belum termuat */
+        }
+        #qrScanFeedback {
+            color: white;
+            margin-top: 10px;
+            font-size: 0.9em;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 p-4 md:p-8">
+
+    <div id="loadingOverlay" class="loading-overlay hidden">
+        <div class="spinner"></div>
+    </div>
+
+    <div id="qrScannerContainer" class="qr-scanner-container hidden">
+        <video id="qrVideo" playsinline></video>
+        <p id="qrScanFeedback" class="mt-2 text-white text-sm">Arahkan kamera ke QR Code...</p>
+        <button id="stopScanButton" class="mt-4 bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-md">
+            Stop Scan
+        </button>
+    </div>
+
+
+    <div class="container mx-auto max-w-7xl">
+        <header class="mb-8 text-center">
+            <h1 class="text-4xl font-bold text-slate-700">Aplikasi Kasir Hamial.id (Protoype)</h1>
+        </header>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div class="lg:col-span-2 space-y-6">
+                <div class="bg-white p-6 rounded-lg shadow-lg">
+                    <h2 id="formTitle" class="text-2xl font-semibold mb-4 text-slate-600">Manajemen Produk</h2>
+                    <form id="productForm" class="space-y-4">
+                        <input type="hidden" id="productId">
+                        <div>
+                            <label for="productCode" class="block text-sm font-medium text-gray-700">Kode Produk</label>
+                            <input type="text" id="productCode" name="productCode" required class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                        </div>
+                        <div>
+                            <label for="productName" class="block text-sm font-medium text-gray-700">Nama Produk</label>
+                            <input type="text" id="productName" name="productName" required class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                        </div>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label for="productPrice" class="block text-sm font-medium text-gray-700">Harga (Rp)</label>
+                                <input type="number" id="productPrice" name="productPrice" required min="0" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                            </div>
+                            <div>
+                                <label for="productStock" class="block text-sm font-medium text-gray-700">Stok Awal</label>
+                                <input type="number" id="productStock" name="productStock" required min="0" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                            </div>
+                        </div>
+                        <div class="flex space-x-2">
+                            <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">Simpan Produk</button>
+                            <button type="button" id="cancelEditButton" class="w-full bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-4 rounded-md hidden">Batal Edit</button>
+                        </div>
+                         <p class="text-xs text-gray-500 mt-2">Data produk disimpan dan diambil dari Google Sheet.</p>
+                    </form>
+                </div>
+
+                <div class="bg-white p-6 rounded-lg shadow-lg">
+                    <div class="flex justify-between items-center mb-4">
+                        <h2 class="text-2xl font-semibold text-slate-600">Daftar Produk</h2>
+                    </div>
+                    <div class="mb-4 flex items-center space-x-2">
+                        <label for="searchProductInput" class="sr-only">Cari Produk</label>
+                        <input type="text" id="searchProductInput" placeholder="Cari berdasarkan nama atau kode produk..." class="flex-grow px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                        <button id="scanQrButton" class="bg-teal-500 hover:bg-teal-600 text-white font-bold py-2 px-3 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-teal-500">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 inline-block mr-1" viewBox="0 0 20 20" fill="currentColor">
+                                <path fill-rule="evenodd" d="M0 4a2 2 0 012-2h16a2 2 0 012 2v12a2 2 0 01-2 2H2a2 2 0 01-2-2V4zm11 1H9v2h2V5zm-2 4H7v2h2V9zm4 0h-2v2h2V9zm2-4h-2v2h2V5zm-2 2H9v2h2V7zm0 4h-2v2h2v-2zM7 7H5v2h2V7zm0 4H5v2h2v-2zm8-4h-2v2h2V7zm0 4h-2v2h2v-2z" clip-rule="evenodd" />
+                            </svg>
+                            Scan QR
+                        </button>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full bg-white border border-gray-200 rounded-md">
+                            <thead class="bg-gray-50">
+                                <tr>
+                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Kode</th>
+                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nama</th>
+                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Harga</th>
+                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Stok</th>
+                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Aksi</th>
+                                </tr>
+                            </thead>
+                            <tbody id="productsTableBody" class="divide-y divide-gray-200">
+                            </tbody>
+                        </table>
+                    </div>
+                     <p class="text-xs text-gray-500 mt-2">Stok diperbarui dari Google Sheet.</p>
+                </div>
+            </div>
+
+            <div class="lg:col-span-1 bg-white p-6 rounded-lg shadow-lg">
+                <h2 class="text-2xl font-semibold mb-4 text-slate-600">Keranjang Belanja</h2>
+                <div id="cartItems" class="space-y-2 mb-4 max-h-80 overflow-y-auto">
+                    <p class="text-gray-500">Keranjang kosong.</p>
+                </div>
+                <hr class="my-4">
+                <div class="flex justify-between items-center mb-4">
+                    <span class="text-lg font-semibold text-gray-700">Total:</span>
+                    <span id="cartTotal" class="text-lg font-bold text-indigo-600">Rp 0</span>
+                </div>
+                <div class="mb-4">
+                    <label for="paymentMethod" class="block text-sm font-medium text-gray-700">Metode Pembayaran</label>
+                    <select id="paymentMethod" name="paymentMethod" class="mt-1 block w-full px-3 py-2 border border-gray-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                        <option value="">Pilih Metode</option>
+                        <option value="Tunai">Tunai</option>
+                        <option value="QRIS">QRIS</option>
+                        <option value="Kartu Debit">Kartu Debit</option>
+                        <option value="Kartu Kredit">Kartu Kredit</option>
+                    </select>
+                </div>
+                <button id="confirmPaymentButton" class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500">Konfirmasi Pembayaran</button>
+            </div>
+        </div>
+
+        <div class="mt-8 bg-white p-6 rounded-lg shadow-lg">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-2xl font-semibold text-slate-600">Laporan Penjualan</h2>
+                <button id="exportSalesReportButton" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">Ekspor ke Excel</button>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="min-w-full bg-white border border-gray-200 rounded-md">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tanggal</th>
+                            <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID Transaksi</th>
+                            <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Item</th>
+                            <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total</th>
+                            <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Metode Pembayaran</th>
+                        </tr>
+                    </thead>
+                    <tbody id="salesReportTableBody" class="divide-y divide-gray-200">
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div id="messageModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full flex items-center justify-center hidden modal px-4 z-50">
+        <div class="bg-white p-6 rounded-lg shadow-xl w-full max-w-md mx-auto">
+            <h3 class="text-lg font-medium leading-6 text-gray-900 mb-2">Notifikasi</h3>
+            <p id="messageText" class="text-sm text-gray-700 mb-4">Isi pesan di sini.</p>
+            <div class="text-right">
+                <button id="closeMessageModalButton" class="px-4 py-2 bg-indigo-600 text-white text-base font-medium rounded-md shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500">Tutup</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="confirmationModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full flex items-center justify-center hidden confirmation-modal px-4 z-[51]">
+        <div class="bg-white p-6 rounded-lg shadow-xl w-full max-w-md mx-auto">
+            <h3 class="text-lg font-medium leading-6 text-gray-900 mb-2">Konfirmasi Tindakan</h3>
+            <p id="confirmationMessage" class="text-sm text-gray-700 mb-4">Apakah Anda yakin?</p>
+            <div class="mt-5 sm:mt-6 sm:grid sm:grid-cols-2 sm:gap-3 sm:grid-flow-row-dense">
+                <button id="confirmActionButton" type="button" class="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-red-600 text-base font-medium text-white hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 sm:col-start-2 sm:text-sm">
+                    Ya, Lanjutkan
+                </button>
+                <button id="cancelActionButton" type="button" class="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:mt-0 sm:col-start-1 sm:text-sm">
+                    Batal
+                </button>
+            </div>
+        </div>
+    </div>
+
+</body>
+</html>
