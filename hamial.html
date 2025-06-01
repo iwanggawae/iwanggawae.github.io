@@ -38,7 +38,7 @@
         const scanQrButton = document.getElementById('scanQrButton');
         const qrScannerContainer = document.getElementById('qrScannerContainer');
         const qrVideo = document.getElementById('qrVideo');
-        const stopScanButton = document.getElementById('stopScanButton');
+        const stopScanButton = document.getElementById('stopScanButton'); // Tombol ini akan berfungsi sebagai "Selesai"
         const qrScanFeedback = document.getElementById('qrScanFeedback');
 
 
@@ -52,8 +52,12 @@
 
         let cart = []; 
         let allProducts = []; 
-        let videoStream = null; // Untuk menyimpan stream kamera
-        let animationFrameId = null; // Untuk mengontrol loop pemindaian QR
+        let videoStream = null; 
+        let animationFrameId = null; 
+        let audioCtx = null; // Untuk Web Audio API
+        let lastScannedQrCode = null; // Untuk mencegah pemindaian berulang dari QR yang sama dengan cepat
+        let lastScanTime = 0; // Waktu pemindaian terakhir
+        const SCAN_DEBOUNCE_TIME = 2000; // 2 detik debounce time
         
         function showLoading(show) {
             loadingOverlay.classList.toggle('hidden', !show);
@@ -163,7 +167,7 @@
                     <td class="border px-4 py-2">
                         <button class="bg-yellow-500 hover:bg-yellow-700 text-white font-bold py-1 px-2 rounded text-sm edit-btn" data-id="${productId}">Edit</button>
                         <button class="bg-red-500 hover:bg-red-700 text-white font-bold py-1 px-2 rounded text-sm delete-btn ml-1" data-id="${productId}">Hapus</button>
-                        <button class="bg-green-500 hover:bg-green-700 text-white font-bold py-1 px-2 rounded text-sm add-to-cart-btn ml-1" data-id="${productId}">+ Keranjang</button>
+                        <button class="bg-green-500 hover:bg-green-700 text-white font-bold py-1 px-2 rounded text-sm add-to-cart-btn ml-1" data-id="${productId}" data-type="list">+ Keranjang</button>
                     </td>
                 `;
             });
@@ -260,11 +264,8 @@
                         } catch (error) { await loadProductsFromGoogleSheet(); }
                     });
                 }
-            } else if (target.classList.contains('add-to-cart-btn')) {
-                const product = allProducts.find(p => p.id === id);
-                if (product) {
-                     addProductToCart(product.id, product.name, product.code, parseFloat(product.price), parseInt(product.stock));
-                } else { showMessage("Produk tidak ditemukan di daftar.", false); }
+            } else if (target.classList.contains('add-to-cart-btn')) { 
+                 addProductToCartById(id);
             }
         });
         
@@ -275,19 +276,45 @@
             cancelEditButton.classList.add('hidden');
         });
 
-        function addProductToCart(id, name, code, price, currentStock) {
-            if (currentStock <= 0) {
-                showMessage(`Stok produk ${name} (${code}) habis.`, false); return;
+        function addProductToCartById(productId) {
+            const product = allProducts.find(p => p.id === productId);
+            if (!product) {
+                showMessage("Produk tidak ditemukan.", false);
+                return false; 
             }
-            const existingItem = cart.find(item => item.id === id);
+
+            const actualCurrentStock = parseInt(product.stock); 
+
+            const existingItem = cart.find(item => item.id === productId);
             if (existingItem) {
-                if (existingItem.quantity < currentStock) existingItem.quantity++;
-                else { showMessage(`Stok produk ${name} (${code}) tidak mencukupi. Sisa: ${currentStock}, diminta: ${existingItem.quantity + 1}`, false); return; }
-            } else {
-                cart.push({ id, name, code, price, quantity: 1, stockAtSaleTime: currentStock });
+                if (existingItem.quantity + 1 <= existingItem.stockAtSaleTime && existingItem.quantity + 1 <= actualCurrentStock) {
+                    existingItem.quantity++;
+                } else {
+                    let reason = "";
+                    if (existingItem.quantity + 1 > existingItem.stockAtSaleTime) reason = `melebihi stok awal saat item ditambahkan (${existingItem.stockAtSaleTime})`;
+                    else if (existingItem.quantity + 1 > actualCurrentStock) reason = `melebihi stok terkini (${actualCurrentStock})`;
+                    else reason = "batas stok tercapai";
+                    showMessage(`Tidak dapat menambah jumlah ${product.name}. Jumlah di keranjang: ${existingItem.quantity}. Alasan: ${reason}.`, false);
+                    return false; 
+                }
+            } else { 
+                if (actualCurrentStock <= 0) {
+                    showMessage(`Stok produk ${product.name} (${product.code}) habis.`, false);
+                    return false; 
+                }
+                cart.push({ 
+                    id: product.id, 
+                    name: product.name, 
+                    code: product.code, 
+                    price: parseFloat(product.price), 
+                    quantity: 1, 
+                    stockAtSaleTime: actualCurrentStock 
+                });
             }
             updateCartDisplay();
+            return true; 
         }
+
 
         function updateCartDisplay() {
             cartItemsDiv.innerHTML = '';
@@ -299,11 +326,14 @@
                     const itemDiv = document.createElement('div');
                     itemDiv.classList.add('flex', 'justify-between', 'items-center', 'py-2', 'border-b');
                     itemDiv.innerHTML = `
-                        <div>
+                        <div class="flex-grow">
                             <p class="font-semibold">${item.name} (${item.code || 'N/A'})</p>
-                            <p class="text-sm text-gray-600">Rp ${item.price.toLocaleString('id-ID')} x ${item.quantity}</p>
+                            <p class="text-sm text-gray-600">Rp ${item.price.toLocaleString('id-ID')}</p>
                         </div>
-                        <div>
+                        <div class="flex items-center">
+                            <input type="number" value="${item.quantity}" min="0" max="${item.stockAtSaleTime}" 
+                                   class="w-16 text-center border border-gray-300 rounded-md cart-item-quantity-input mx-2" 
+                                   data-index="${index}">
                             <button class="bg-red-500 hover:bg-red-700 text-white text-xs py-1 px-2 rounded remove-from-cart-btn" data-index="${index}">Hapus</button>
                         </div>`;
                     cartItemsDiv.appendChild(itemDiv);
@@ -313,13 +343,46 @@
             cartTotalSpan.textContent = `Rp ${total.toLocaleString('id-ID')}`;
         }
 
-        cartItemsDiv.addEventListener('click', (e) => {
-            if (e.target.classList.contains('remove-from-cart-btn')) {
+        cartItemsDiv.addEventListener('input', (e) => { 
+            if (e.target.classList.contains('cart-item-quantity-input')) {
                 const index = parseInt(e.target.dataset.index);
-                cart.splice(index, 1);
-                updateCartDisplay();
+                let newQuantity = parseInt(e.target.value);
+                const cartItem = cart[index];
+
+                if (!cartItem) return; 
+
+                if (isNaN(newQuantity) || newQuantity < 0) {
+                    newQuantity = 0; 
+                }
+
+                if (newQuantity > cartItem.stockAtSaleTime) {
+                    showMessage(`Jumlah maksimal untuk ${cartItem.name} adalah ${cartItem.stockAtSaleTime} (stok saat ditambahkan).`, false);
+                    e.target.value = cartItem.stockAtSaleTime; 
+                    newQuantity = cartItem.stockAtSaleTime;
+                }
+                
+                if (newQuantity === 0) {
+                    cart.splice(index, 1); 
+                    showMessage(`${cartItem.name} dihapus dari keranjang.`, true);
+                } else {
+                    cartItem.quantity = newQuantity;
+                }
+                updateCartDisplay(); 
             }
         });
+
+
+        cartItemsDiv.addEventListener('click', (e) => { 
+            if (e.target.classList.contains('remove-from-cart-btn')) {
+                const index = parseInt(e.target.dataset.index);
+                if (cart[index]) {
+                    showMessage(`${cart[index].name} dihapus dari keranjang.`, true);
+                    cart.splice(index, 1);
+                    updateCartDisplay();
+                }
+            }
+        });
+
 
         confirmPaymentButton.addEventListener('click', async () => {
             if (cart.length === 0) { showMessage("Keranjang kosong.", false); return; }
@@ -356,7 +419,6 @@
                 window.currentSalesReportData = transactions; 
                 transactions.forEach((report) => {
                     let itemsSummary = report.items_display_summary || 'Detail tidak tersedia';
-                     // Jika items_display_summary tidak ada, coba parse dari items_raw_json
                     if (itemsSummary === 'Detail tidak tersedia' && report.items_raw_json) {
                         try {
                             const items = JSON.parse(report.items_raw_json);
@@ -386,53 +448,37 @@
                 }
                 const formattedData = salesDataForExport.flatMap(transaction => {
                     let itemsDetails = [];
-                    // Prioritaskan items_raw_json untuk detail ekspor
                     if (typeof transaction.items_raw_json === 'string') {
                         try { itemsDetails = JSON.parse(transaction.items_raw_json); } catch (e) { /* biarkan kosong */ }
                     } else if (Array.isArray(transaction.items_raw_json)) { 
                         itemsDetails = transaction.items_raw_json;
-                    } else if (typeof transaction.items_json === 'string') { // Fallback ke items_json (jika ada dari versi lama)
-                         try { itemsDetails = JSON.parse(transaction.items_json); } catch (e) { /* biarkan kosong */ }
                     }
-
-
                     if (itemsDetails.length === 0) { 
                         return [{
                             'ID Transaksi': transaction.transaction_id,
                             'Timestamp': new Date(transaction.timestamp).toLocaleString('id-ID'),
                             'Kode Produk': 'N/A',
-                            'Nama Produk': transaction.items_display_summary || transaction.items_summary || 'Ringkasan Transaksi',
-                            'Jumlah': 1, 
-                            'Harga Satuan': transaction.total_amount,
-                            'Subtotal': transaction.total_amount,
-                            'Total Transaksi': transaction.total_amount,
-                            'Metode Pembayaran': transaction.payment_method,
+                            'Nama Produk': transaction.items_display_summary || 'Ringkasan Transaksi',
+                            'Jumlah': 1, 'Harga Satuan': transaction.total_amount, 'Subtotal': transaction.total_amount,
+                            'Total Transaksi': transaction.total_amount, 'Metode Pembayaran': transaction.payment_method,
                         }];
                     }
                     return itemsDetails.map(item => ({
                         'ID Transaksi': transaction.transaction_id,
                         'Timestamp': new Date(transaction.timestamp).toLocaleString('id-ID'),
-                        'Kode Produk': item.code || 'N/A',
-                        'Nama Produk': item.name,
-                        'Jumlah': item.quantity,
-                        'Harga Satuan': item.price,
+                        'Kode Produk': item.code || 'N/A', 'Nama Produk': item.name,
+                        'Jumlah': item.quantity, 'Harga Satuan': item.price,
                         'Subtotal': (item.quantity || 0) * (item.price || 0),
-                        'Total Transaksi': transaction.total_amount,
-                        'Metode Pembayaran': transaction.payment_method,
+                        'Total Transaksi': transaction.total_amount, 'Metode Pembayaran': transaction.payment_method,
                     }));
                 });
-                
                 if (formattedData.length === 0) {
                     showMessage("Tidak ada item transaksi valid untuk diekspor.", false); showLoading(false); return;
                 }
                 const worksheet = XLSX.utils.json_to_sheet(formattedData);
                 const workbook = XLSX.utils.book_new();
                 XLSX.utils.book_append_sheet(workbook, worksheet, "Laporan Penjualan");
-                const colWidths = [
-                    {wch: 25}, {wch: 20}, {wch: 15}, {wch: 30}, {wch: 10}, {wch: 15},
-                    {wch: 15}, {wch: 18}, {wch: 20}
-                ];
-                worksheet['!cols'] = colWidths;
+                worksheet['!cols'] = [ {wch: 25}, {wch: 20}, {wch: 15}, {wch: 30}, {wch: 10}, {wch: 15}, {wch: 15}, {wch: 18}, {wch: 20} ];
                 XLSX.writeFile(workbook, "Laporan_Penjualan_Google_Sheet.xlsx");
                 showMessage("Laporan penjualan berhasil diekspor!", true);
             } catch (error) { /* ditangani fetchFromAppsScript */ } 
@@ -440,45 +486,66 @@
         });
 
         // --- Logika Scan QR ---
+        function playBeep() {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+            if (!audioCtx) return; 
+
+            const oscillator = audioCtx.createOscillator();
+            const gainNode = audioCtx.createGain();
+
+            oscillator.connect(gainNode);
+            gainNode.connect(audioCtx.destination);
+
+            gainNode.gain.setValueAtTime(0, audioCtx.currentTime); 
+            gainNode.gain.linearRampToValueAtTime(0.3, audioCtx.currentTime + 0.01); 
+
+            oscillator.frequency.setValueAtTime(880, audioCtx.currentTime); 
+            oscillator.type = 'sine'; 
+            
+            oscillator.start(audioCtx.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.00001, audioCtx.currentTime + 0.15); 
+            oscillator.stop(audioCtx.currentTime + 0.15); 
+        }
+
+
         function startQrScan() {
             if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-                showMessage("Kamera tidak didukung oleh browser ini.", false);
-                return;
+                showMessage("Kamera tidak didukung oleh browser ini.", false); return;
             }
             qrScannerContainer.classList.remove('hidden');
             qrScanFeedback.textContent = "Arahkan kamera ke QR Code...";
+            lastScannedQrCode = null; // Reset QR code terakhir yang dipindai
+            lastScanTime = 0; // Reset waktu pemindaian terakhir
 
             navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } })
                 .then(function(stream) {
                     videoStream = stream;
                     qrVideo.srcObject = stream;
-                    qrVideo.setAttribute("playsinline", true); // Untuk iOS
+                    qrVideo.setAttribute("playsinline", true); 
                     qrVideo.play();
-                    scanQrCode(); // Mulai loop pemindaian
+                    scanQrCodeLoop(); 
                 })
                 .catch(function(err) {
                     console.error("Error mengakses kamera: ", err);
                     qrScanFeedback.textContent = "Gagal mengakses kamera: " + err.message;
                     showMessage("Gagal mengakses kamera: " + err.name, false);
-                    stopQrScan(); // Pastikan container disembunyikan jika gagal
+                    stopQrScan(); 
                 });
         }
 
         function stopQrScan() {
-            if (animationFrameId) {
-                cancelAnimationFrame(animationFrameId);
-                animationFrameId = null;
-            }
-            if (videoStream) {
-                videoStream.getTracks().forEach(track => track.stop());
-                videoStream = null;
-            }
+            if (animationFrameId) cancelAnimationFrame(animationFrameId);
+            animationFrameId = null;
+            if (videoStream) videoStream.getTracks().forEach(track => track.stop());
+            videoStream = null;
             qrVideo.srcObject = null;
             qrScannerContainer.classList.add('hidden');
             qrScanFeedback.textContent = "";
         }
 
-        function scanQrCode() {
+        function scanQrCodeLoop() {
             if (qrVideo.readyState === qrVideo.HAVE_ENOUGH_DATA) {
                 const canvasElement = document.createElement('canvas');
                 const canvas = canvasElement.getContext('2d');
@@ -486,29 +553,43 @@
                 canvasElement.width = qrVideo.videoWidth;
                 canvas.drawImage(qrVideo, 0, 0, canvasElement.width, canvasElement.height);
                 const imageData = canvas.getImageData(0, 0, canvasElement.width, canvasElement.height);
-                
-                const code = jsQR(imageData.data, imageData.width, imageData.height, {
-                    inversionAttempts: "dontInvert",
-                });
+                const code = jsQR(imageData.data, imageData.width, imageData.height, { inversionAttempts: "dontInvert" });
 
-                if (code) {
-                    qrScanFeedback.textContent = `QR Code terdeteksi: ${code.data}`;
-                    searchProductInput.value = code.data;
-                    filterAndDisplayProducts(); // Langsung filter
-                    stopQrScan();
-                    showMessage(`Produk dengan kode "${code.data}" dicari.`, true);
+                if (code && code.data) {
+                    const currentTime = Date.now();
+                    // Cek apakah QR code sama dengan yang terakhir dipindai dan apakah dalam waktu debounce
+                    if (code.data === lastScannedQrCode && (currentTime - lastScanTime) < SCAN_DEBOUNCE_TIME) {
+                        // Abaikan jika QR code sama dan masih dalam waktu debounce
+                        qrScanFeedback.textContent = `Kode QR terdeteksi: ${code.data} (Menunggu...)`;
+                    } else {
+                        lastScannedQrCode = code.data;
+                        lastScanTime = currentTime;
+                        qrScanFeedback.textContent = `Kode QR terdeteksi: ${code.data}`;
+                        searchProductInput.value = code.data; 
+                        
+                        const productToScan = allProducts.find(p => p.code === code.data || p.id === code.data);
+                        if (productToScan) {
+                            const addedSuccessfully = addProductToCartById(productToScan.id); 
+                            if (addedSuccessfully) {
+                                playBeep(); 
+                                qrScanFeedback.textContent = `${productToScan.name} ditambahkan! Scan lagi...`;
+                            }
+                            // Jika gagal (stok habis dll), pesan sudah dari addProductToCartById
+                        } else {
+                            showMessage(`Produk dengan kode QR "${code.data}" tidak ditemukan.`, false);
+                            qrScanFeedback.textContent = `Produk ${code.data} tidak ditemukan. Scan lagi...`;
+                        }
+                        // Jangan panggil stopQrScan() di sini agar kamera tetap aktif
+                    }
                 } else {
-                    qrScanFeedback.textContent = "Memindai QR Code...";
+                    qrScanFeedback.textContent = "Arahkan kamera ke QR Code...";
                 }
             }
-            if (videoStream) { // Hanya lanjutkan jika stream masih aktif
-                animationFrameId = requestAnimationFrame(scanQrCode);
-            }
+            if (videoStream) animationFrameId = requestAnimationFrame(scanQrCodeLoop);
         }
 
         scanQrButton.addEventListener('click', startQrScan);
-        stopScanButton.addEventListener('click', stopQrScan);
-        // --- Akhir Logika Scan QR ---
+        stopScanButton.addEventListener('click', stopQrScan); // Tombol ini sekarang berfungsi sebagai "Selesai"
         
         document.addEventListener('DOMContentLoaded', initializeAppWithGoogleSheets);
 
@@ -529,7 +610,7 @@
             background-color: rgba(0, 0, 0, 0.7);
             z-index: 9999;
             display: flex;
-            flex-direction: column; /* Untuk menata video dan tombol stop */
+            flex-direction: column; 
             align-items: center;
             justify-content: center;
             padding: 10px;
@@ -548,15 +629,16 @@
         }
         #qrVideo {
             max-width: 80%;
-            max-height: 70vh; /* Batasi tinggi video */
+            max-height: 70vh; 
             border: 2px solid white;
             border-radius: 8px;
-            background-color: #333; /* Latar belakang jika video belum termuat */
+            background-color: #333; 
         }
         #qrScanFeedback {
             color: white;
             margin-top: 10px;
             font-size: 0.9em;
+            text-align: center; /* Agar teks feedback lebih rapi */
         }
     </style>
 </head>
@@ -570,7 +652,7 @@
         <video id="qrVideo" playsinline></video>
         <p id="qrScanFeedback" class="mt-2 text-white text-sm">Arahkan kamera ke QR Code...</p>
         <button id="stopScanButton" class="mt-4 bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-md">
-            Stop Scan
+            Selesai Scan
         </button>
     </div>
 
