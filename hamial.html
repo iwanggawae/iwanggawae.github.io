@@ -9,6 +9,75 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 10px; }
+        ::-webkit-scrollbar-thumb { background: #888; border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: #555; }
+        .modal, .loading-overlay, .confirmation-modal, .qr-scanner-container, .onboarding-screen { transition: opacity 0.5s ease-in-out; }
+        .loading-overlay, .qr-scanner-container, .onboarding-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.7); /* Default, bisa di-override */
+            z-index: 9999;
+            display: flex;
+            flex-direction: column; 
+            align-items: center;
+            justify-content: center;
+            padding: 10px;
+        }
+        .spinner {
+            border: 4px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top: 4px solid #fff;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        #qrVideo {
+            max-width: 80%;
+            max-height: 70vh; 
+            border: 2px solid white;
+            border-radius: 8px;
+            background-color: #333; 
+        }
+        #qrScanFeedback {
+            color: white;
+            margin-top: 10px;
+            font-size: 0.9em;
+            text-align: center; 
+        }
+        /* Styling untuk Onboarding Screen */
+        .onboarding-screen {
+            background-color: #1f2937; /* bg-slate-800 */
+            color: white;
+            z-index: 10000; /* Pastikan di atas segalanya */
+        }
+        .logo-gh {
+            font-size: 6rem; /* text-8xl atau 9xl */
+            font-weight: bold;
+            color: #2dd4bf; /* text-teal-400 */
+        }
+        .logo-kasir {
+            font-size: 6rem; /* text-8xl atau 9xl */
+            font-weight: bold;
+            color: white;
+            margin-left: 0.5rem; /* ml-2 */
+        }
+        @media (min-width: 768px) { /* md: */
+            .logo-gh, .logo-kasir {
+                font-size: 7rem; /* Lebih besar di layar md */
+            }
+        }
+    </style>
     <script type="module">
         // URL Web App Google Apps Script Anda akan dimasukkan di sini
         const GOOGLE_APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyqKE-hEYoL4_TkuosqyI3uJbhc71q6VhxR66g8ayw6XaLGyVLahwbCVRlk2V-JXv15/exec'; 
@@ -24,7 +93,6 @@
         const cartTotalSpan = document.getElementById('cartTotal');
         const paymentMethodSelect = document.getElementById('paymentMethod');
         const confirmPaymentButton = document.getElementById('confirmPaymentButton');
-        // Tombol Cetak Nota dihapus dari sini
         const productIdInput = document.getElementById('productId');
         const formTitle = document.getElementById('formTitle');
         const cancelEditButton = document.getElementById('cancelEditButton');
@@ -43,13 +111,16 @@
         const stopScanButton = document.getElementById('stopScanButton'); 
         const qrScanFeedback = document.getElementById('qrScanFeedback');
 
-
-        // Konfirmasi Modal (akan digunakan untuk cetak nota juga)
+        // Konfirmasi Modal
         const confirmationModal = document.getElementById('confirmationModal');
         const confirmationMessage = document.getElementById('confirmationMessage');
         const confirmActionButton = document.getElementById('confirmActionButton');
         const cancelActionButton = document.getElementById('cancelActionButton');
         let currentConfirmAction = null;
+
+        // Elemen Onboarding
+        const onboardingScreen = document.getElementById('onboardingScreen');
+        const mainAppContainer = document.getElementById('mainAppContainer');
 
 
         let cart = []; 
@@ -76,7 +147,7 @@
 
         function showConfirmationModal(message, onConfirm, onCancel = null) {
             confirmationMessage.textContent = message;
-            currentConfirmAction = { confirm: onConfirm, cancel: onCancel }; // Simpan kedua callback
+            currentConfirmAction = { confirm: onConfirm, cancel: onCancel }; 
             confirmationModal.classList.remove('hidden');
         }
 
@@ -142,7 +213,6 @@
         
         async function initializeAppWithGoogleSheets() {
             console.log("Initializing app with Google Sheets...");
-            // Tombol cetak nota tidak ada lagi, jadi tidak perlu dinonaktifkan di sini
             await loadProductsFromGoogleSheet();
             await loadSalesReportFromGoogleSheet();
             console.log("App initialized. Products loaded:", allProducts.length);
@@ -416,14 +486,13 @@
                     timestamp: saleTimestamp 
                 };
                 
-                // Tampilkan modal konfirmasi untuk cetak nota
                 showConfirmationModal(
                     `${result.message || "Pembayaran berhasil diproses."} Apakah ingin mencetak Nota?`,
-                    () => { // Aksi jika "Ya" (Confirm)
+                    () => { 
                         printReceipt();
                     },
-                    () => { // Aksi jika "Tidak" (Cancel) atau modal ditutup
-                        lastSuccessfulTransactionData = null; // Reset agar tidak bisa dicetak lagi
+                    () => { 
+                        lastSuccessfulTransactionData = null; 
                         console.log("Pengguna memilih untuk tidak mencetak nota.");
                     }
                 );
@@ -434,7 +503,7 @@
                 updateCartDisplay(); 
             } catch (error) {
                 showMessage(`Gagal memproses penjualan: ${error.message}.`, false);
-                lastSuccessfulTransactionData = null; // Reset jika gagal
+                lastSuccessfulTransactionData = null; 
                 await loadProductsFromGoogleSheet(); 
             }
         });
@@ -704,7 +773,7 @@
             doc.text("HAMIAL.ID", pageWidth / 2, yPos, { align: 'center' });
 
             doc.save(`nota_${transaction.transactionId || Date.now()}.pdf`);
-            lastSuccessfulTransactionData = null; // Reset setelah nota dicetak
+            lastSuccessfulTransactionData = null; 
         }
 
 
@@ -712,213 +781,193 @@
         stopScanButton.addEventListener('click', stopQrScan); 
         // Event listener untuk printReceiptButton dihapus
         
-        document.addEventListener('DOMContentLoaded', initializeAppWithGoogleSheets);
+        document.addEventListener('DOMContentLoaded', () => {
+            // Logika Onboarding
+            if (onboardingScreen && mainAppContainer) {
+                mainAppContainer.classList.add('hidden'); // Sembunyikan aplikasi utama dulu
+                
+                setTimeout(() => {
+                    onboardingScreen.classList.add('opacity-0');
+                    setTimeout(() => {
+                        onboardingScreen.style.display = 'none';
+                        mainAppContainer.classList.remove('hidden');
+                        // Inisialisasi aplikasi utama setelah onboarding selesai
+                        initializeAppWithGoogleSheets();
+                    }, 500); // Waktu ini harus cocok dengan durasi transisi opacity
+                }, 3000); // Tampilkan onboarding selama 3 detik
+            } else {
+                // Jika elemen onboarding tidak ada, langsung inisialisasi aplikasi
+                initializeAppWithGoogleSheets();
+            }
+        });
 
     </script>
-    <style>
-        body { font-family: 'Inter', sans-serif; }
-        ::-webkit-scrollbar { width: 8px; }
-        ::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 10px; }
-        ::-webkit-scrollbar-thumb { background: #888; border-radius: 10px; }
-        ::-webkit-scrollbar-thumb:hover { background: #555; }
-        .modal, .loading-overlay, .confirmation-modal { transition: opacity 0.3s ease-in-out; }
-        .loading-overlay, .qr-scanner-container {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background-color: rgba(0, 0, 0, 0.7);
-            z-index: 9999;
-            display: flex;
-            flex-direction: column; 
-            align-items: center;
-            justify-content: center;
-            padding: 10px;
-        }
-        .spinner {
-            border: 4px solid rgba(255, 255, 255, 0.3);
-            border-radius: 50%;
-            border-top: 4px solid #fff;
-            width: 40px;
-            height: 40px;
-            animation: spin 1s linear infinite;
-        }
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-        #qrVideo {
-            max-width: 80%;
-            max-height: 70vh; 
-            border: 2px solid white;
-            border-radius: 8px;
-            background-color: #333; 
-        }
-        #qrScanFeedback {
-            color: white;
-            margin-top: 10px;
-            font-size: 0.9em;
-            text-align: center; 
-        }
-    </style>
 </head>
 <body class="bg-gray-100 p-4 md:p-8">
 
-    <div id="loadingOverlay" class="loading-overlay hidden">
-        <div class="spinner"></div>
+    <div id="onboardingScreen" class="onboarding-screen">
+        <div class="text-center">
+            <div class="mb-4">
+                <span class="logo-gh">GH</span><span class="logo-kasir">Kasir</span>
+            </div>
+            <p class="text-sm text-gray-300">Developed by Jagodigital.ID | iwanggawae</p>
+        </div>
+        <p class="absolute bottom-5 text-xs text-gray-400">versi 2.1</p>
     </div>
 
-    <div id="qrScannerContainer" class="qr-scanner-container hidden">
-        <video id="qrVideo" playsinline></video>
-        <p id="qrScanFeedback" class="mt-2 text-white text-sm">Arahkan kamera ke QR Code...</p>
-        <button id="stopScanButton" class="mt-4 bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-md">
-            Selesai Scan
-        </button>
-    </div>
+    <div id="mainAppContainer" class="hidden"> <div id="loadingOverlay" class="loading-overlay hidden">
+            <div class="spinner"></div>
+        </div>
+
+        <div id="qrScannerContainer" class="qr-scanner-container hidden">
+            <video id="qrVideo" playsinline></video>
+            <p id="qrScanFeedback" class="mt-2 text-white text-sm">Arahkan kamera ke QR Code...</p>
+            <button id="stopScanButton" class="mt-4 bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-md">
+                Selesai Scan
+            </button>
+        </div>
 
 
-    <div class="container mx-auto max-w-7xl">
-        <header class="mb-8 text-center">
-            <h1 class="text-4xl font-bold text-slate-700">Aplikasi Kasir Hamial.id (Protoype)</h1>
-        </header>
+        <div class="container mx-auto max-w-7xl">
+            <header class="mb-8 text-center">
+                <h1 class="text-4xl font-bold text-slate-700">Aplikasi Kasir Hamial.id (Protoype)</h1>
+            </header>
 
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <div class="lg:col-span-2 space-y-6">
-                <div class="bg-white p-6 rounded-lg shadow-lg">
-                    <h2 id="formTitle" class="text-2xl font-semibold mb-4 text-slate-600">Manajemen Produk</h2>
-                    <form id="productForm" class="space-y-4">
-                        <input type="hidden" id="productId">
-                        <div>
-                            <label for="productCode" class="block text-sm font-medium text-gray-700">Kode Produk</label>
-                            <input type="text" id="productCode" name="productCode" required class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
-                        </div>
-                        <div>
-                            <label for="productName" class="block text-sm font-medium text-gray-700">Nama Produk</label>
-                            <input type="text" id="productName" name="productName" required class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
-                        </div>
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div class="lg:col-span-2 space-y-6">
+                    <div class="bg-white p-6 rounded-lg shadow-lg">
+                        <h2 id="formTitle" class="text-2xl font-semibold mb-4 text-slate-600">Manajemen Produk</h2>
+                        <form id="productForm" class="space-y-4">
+                            <input type="hidden" id="productId">
                             <div>
-                                <label for="productPrice" class="block text-sm font-medium text-gray-700">Harga (Rp)</label>
-                                <input type="number" id="productPrice" name="productPrice" required min="0" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                                <label for="productCode" class="block text-sm font-medium text-gray-700">Kode Produk</label>
+                                <input type="text" id="productCode" name="productCode" required class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
                             </div>
                             <div>
-                                <label for="productStock" class="block text-sm font-medium text-gray-700">Stok Awal</label>
-                                <input type="number" id="productStock" name="productStock" required min="0" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                                <label for="productName" class="block text-sm font-medium text-gray-700">Nama Produk</label>
+                                <input type="text" id="productName" name="productName" required class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
                             </div>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <label for="productPrice" class="block text-sm font-medium text-gray-700">Harga (Rp)</label>
+                                    <input type="number" id="productPrice" name="productPrice" required min="0" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                                </div>
+                                <div>
+                                    <label for="productStock" class="block text-sm font-medium text-gray-700">Stok Awal</label>
+                                    <input type="number" id="productStock" name="productStock" required min="0" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                                </div>
+                            </div>
+                            <div class="flex space-x-2">
+                                <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">Simpan Produk</button>
+                                <button type="button" id="cancelEditButton" class="w-full bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-4 rounded-md hidden">Batal Edit</button>
+                            </div>
+                             <p class="text-xs text-gray-500 mt-2">Data produk disimpan dan diambil dari Google Sheet.</p>
+                        </form>
+                    </div>
+
+                    <div class="bg-white p-6 rounded-lg shadow-lg">
+                        <div class="flex justify-between items-center mb-4">
+                            <h2 class="text-2xl font-semibold text-slate-600">Daftar Produk</h2>
                         </div>
-                        <div class="flex space-x-2">
-                            <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">Simpan Produk</button>
-                            <button type="button" id="cancelEditButton" class="w-full bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-4 rounded-md hidden">Batal Edit</button>
+                        <div class="mb-4 flex items-center space-x-2">
+                            <label for="searchProductInput" class="sr-only">Cari Produk</label>
+                            <input type="text" id="searchProductInput" placeholder="Cari berdasarkan nama atau kode produk..." class="flex-grow px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                            <button id="scanQrButton" class="bg-teal-500 hover:bg-teal-600 text-white font-bold py-2 px-3 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-teal-500">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 inline-block mr-1" viewBox="0 0 20 20" fill="currentColor">
+                                    <path fill-rule="evenodd" d="M0 4a2 2 0 012-2h16a2 2 0 012 2v12a2 2 0 01-2 2H2a2 2 0 01-2-2V4zm11 1H9v2h2V5zm-2 4H7v2h2V9zm4 0h-2v2h2V9zm2-4h-2v2h2V5zm-2 2H9v2h2V7zm0 4h-2v2h2v-2zM7 7H5v2h2V7zm0 4H5v2h2v-2zm8-4h-2v2h2V7zm0 4h-2v2h2v-2z" clip-rule="evenodd" />
+                                </svg>
+                                Scan QR
+                            </button>
                         </div>
-                         <p class="text-xs text-gray-500 mt-2">Data produk disimpan dan diambil dari Google Sheet.</p>
-                    </form>
+                        <div class="overflow-x-auto">
+                            <table class="min-w-full bg-white border border-gray-200 rounded-md">
+                                <thead class="bg-gray-50">
+                                    <tr>
+                                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Kode</th>
+                                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nama</th>
+                                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Harga</th>
+                                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Stok</th>
+                                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Aksi</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="productsTableBody" class="divide-y divide-gray-200">
+                                </tbody>
+                            </table>
+                        </div>
+                         <p class="text-xs text-gray-500 mt-2">Stok diperbarui dari Google Sheet.</p>
+                    </div>
                 </div>
 
-                <div class="bg-white p-6 rounded-lg shadow-lg">
+                <div class="lg:col-span-1 bg-white p-6 rounded-lg shadow-lg">
+                    <h2 class="text-2xl font-semibold mb-4 text-slate-600">Keranjang Belanja</h2>
+                    <div id="cartItems" class="space-y-2 mb-4 max-h-80 overflow-y-auto">
+                        <p class="text-gray-500">Keranjang kosong.</p>
+                    </div>
+                    <hr class="my-4">
                     <div class="flex justify-between items-center mb-4">
-                        <h2 class="text-2xl font-semibold text-slate-600">Daftar Produk</h2>
+                        <span class="text-lg font-semibold text-gray-700">Total:</span>
+                        <span id="cartTotal" class="text-lg font-bold text-indigo-600">Rp 0</span>
                     </div>
-                    <div class="mb-4 flex items-center space-x-2">
-                        <label for="searchProductInput" class="sr-only">Cari Produk</label>
-                        <input type="text" id="searchProductInput" placeholder="Cari berdasarkan nama atau kode produk..." class="flex-grow px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
-                        <button id="scanQrButton" class="bg-teal-500 hover:bg-teal-600 text-white font-bold py-2 px-3 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-teal-500">
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 inline-block mr-1" viewBox="0 0 20 20" fill="currentColor">
-                                <path fill-rule="evenodd" d="M0 4a2 2 0 012-2h16a2 2 0 012 2v12a2 2 0 01-2 2H2a2 2 0 01-2-2V4zm11 1H9v2h2V5zm-2 4H7v2h2V9zm4 0h-2v2h2V9zm2-4h-2v2h2V5zm-2 2H9v2h2V7zm0 4h-2v2h2v-2zM7 7H5v2h2V7zm0 4H5v2h2v-2zm8-4h-2v2h2V7zm0 4h-2v2h2v-2z" clip-rule="evenodd" />
-                            </svg>
-                            Scan QR
-                        </button>
+                    <div class="mb-4">
+                        <label for="paymentMethod" class="block text-sm font-medium text-gray-700">Metode Pembayaran</label>
+                        <select id="paymentMethod" name="paymentMethod" class="mt-1 block w-full px-3 py-2 border border-gray-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                            <option value="">Pilih Metode</option>
+                            <option value="Tunai">Tunai</option>
+                            <option value="QRIS">QRIS</option>
+                            <option value="Kartu Debit">Kartu Debit</option>
+                            <option value="Kartu Kredit">Kartu Kredit</option>
+                        </select>
                     </div>
-                    <div class="overflow-x-auto">
-                        <table class="min-w-full bg-white border border-gray-200 rounded-md">
-                            <thead class="bg-gray-50">
-                                <tr>
-                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Kode</th>
-                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nama</th>
-                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Harga</th>
-                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Stok</th>
-                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Aksi</th>
-                                </tr>
-                            </thead>
-                            <tbody id="productsTableBody" class="divide-y divide-gray-200">
-                            </tbody>
-                        </table>
+                    <button id="confirmPaymentButton" class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500">Konfirmasi Pembayaran</button>
                     </div>
-                     <p class="text-xs text-gray-500 mt-2">Stok diperbarui dari Google Sheet.</p>
-                </div>
             </div>
 
-            <div class="lg:col-span-1 bg-white p-6 rounded-lg shadow-lg">
-                <h2 class="text-2xl font-semibold mb-4 text-slate-600">Keranjang Belanja</h2>
-                <div id="cartItems" class="space-y-2 mb-4 max-h-80 overflow-y-auto">
-                    <p class="text-gray-500">Keranjang kosong.</p>
-                </div>
-                <hr class="my-4">
+            <div class="mt-8 bg-white p-6 rounded-lg shadow-lg">
                 <div class="flex justify-between items-center mb-4">
-                    <span class="text-lg font-semibold text-gray-700">Total:</span>
-                    <span id="cartTotal" class="text-lg font-bold text-indigo-600">Rp 0</span>
+                    <h2 class="text-2xl font-semibold text-slate-600">Laporan Penjualan</h2>
+                    <button id="exportSalesReportButton" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">Ekspor ke Excel</button>
                 </div>
-                <div class="mb-4">
-                    <label for="paymentMethod" class="block text-sm font-medium text-gray-700">Metode Pembayaran</label>
-                    <select id="paymentMethod" name="paymentMethod" class="mt-1 block w-full px-3 py-2 border border-gray-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
-                        <option value="">Pilih Metode</option>
-                        <option value="Tunai">Tunai</option>
-                        <option value="QRIS">QRIS</option>
-                        <option value="Kartu Debit">Kartu Debit</option>
-                        <option value="Kartu Kredit">Kartu Kredit</option>
-                    </select>
+                <div class="overflow-x-auto">
+                    <table class="min-w-full bg-white border border-gray-200 rounded-md">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tanggal</th>
+                                <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID Transaksi</th>
+                                <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Item</th>
+                                <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total</th>
+                                <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Metode Pembayaran</th>
+                            </tr>
+                        </thead>
+                        <tbody id="salesReportTableBody" class="divide-y divide-gray-200">
+                        </tbody>
+                    </table>
                 </div>
-                <button id="confirmPaymentButton" class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500">Konfirmasi Pembayaran</button>
+            </div>
+        </div>
+
+        <div id="messageModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full flex items-center justify-center hidden modal px-4 z-50">
+            <div class="bg-white p-6 rounded-lg shadow-xl w-full max-w-md mx-auto">
+                <h3 class="text-lg font-medium leading-6 text-gray-900 mb-2">Notifikasi</h3>
+                <p id="messageText" class="text-sm text-gray-700 mb-4">Isi pesan di sini.</p>
+                <div class="text-right">
+                    <button id="closeMessageModalButton" class="px-4 py-2 bg-indigo-600 text-white text-base font-medium rounded-md shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500">Tutup</button>
                 </div>
-        </div>
-
-        <div class="mt-8 bg-white p-6 rounded-lg shadow-lg">
-            <div class="flex justify-between items-center mb-4">
-                <h2 class="text-2xl font-semibold text-slate-600">Laporan Penjualan</h2>
-                <button id="exportSalesReportButton" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">Ekspor ke Excel</button>
-            </div>
-            <div class="overflow-x-auto">
-                <table class="min-w-full bg-white border border-gray-200 rounded-md">
-                    <thead class="bg-gray-50">
-                        <tr>
-                            <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tanggal</th>
-                            <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID Transaksi</th>
-                            <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Item</th>
-                            <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total</th>
-                            <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Metode Pembayaran</th>
-                        </tr>
-                    </thead>
-                    <tbody id="salesReportTableBody" class="divide-y divide-gray-200">
-                    </tbody>
-                </table>
             </div>
         </div>
-    </div>
 
-    <div id="messageModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full flex items-center justify-center hidden modal px-4 z-50">
-        <div class="bg-white p-6 rounded-lg shadow-xl w-full max-w-md mx-auto">
-            <h3 class="text-lg font-medium leading-6 text-gray-900 mb-2">Notifikasi</h3>
-            <p id="messageText" class="text-sm text-gray-700 mb-4">Isi pesan di sini.</p>
-            <div class="text-right">
-                <button id="closeMessageModalButton" class="px-4 py-2 bg-indigo-600 text-white text-base font-medium rounded-md shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500">Tutup</button>
+        <div id="confirmationModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full flex items-center justify-center hidden confirmation-modal px-4 z-[51]">
+            <div class="bg-white p-6 rounded-lg shadow-xl w-full max-w-md mx-auto">
+                <h3 class="text-lg font-medium leading-6 text-gray-900 mb-2">Konfirmasi Tindakan</h3>
+                <p id="confirmationMessage" class="text-sm text-gray-700 mb-4">Apakah Anda yakin?</p>
+                <div class="mt-5 sm:mt-6 sm:grid sm:grid-cols-2 sm:gap-3 sm:grid-flow-row-dense">
+                    <button id="confirmActionButton" type="button" class="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-red-600 text-base font-medium text-white hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 sm:col-start-2 sm:text-sm">
+                        Ya
+                    </button>
+                    <button id="cancelActionButton" type="button" class="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:mt-0 sm:col-start-1 sm:text-sm">
+                        Tidak
+                    </button>
+                </div>
             </div>
         </div>
-    </div>
-
-    <div id="confirmationModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full flex items-center justify-center hidden confirmation-modal px-4 z-[51]">
-        <div class="bg-white p-6 rounded-lg shadow-xl w-full max-w-md mx-auto">
-            <h3 class="text-lg font-medium leading-6 text-gray-900 mb-2">Konfirmasi Tindakan</h3>
-            <p id="confirmationMessage" class="text-sm text-gray-700 mb-4">Apakah Anda yakin?</p>
-            <div class="mt-5 sm:mt-6 sm:grid sm:grid-cols-2 sm:gap-3 sm:grid-flow-row-dense">
-                <button id="confirmActionButton" type="button" class="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-red-600 text-base font-medium text-white hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 sm:col-start-2 sm:text-sm">
-                    Ya
-                </button>
-                <button id="cancelActionButton" type="button" class="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:mt-0 sm:col-start-1 sm:text-sm">
-                    Tidak
-                </button>
-            </div>
-        </div>
-    </div>
-
-</body>
+    </div> </body>
 </html>
