@@ -8,6 +8,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script type="module">
         // URL Web App Google Apps Script Anda akan dimasukkan di sini
         const GOOGLE_APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyqKE-hEYoL4_TkuosqyI3uJbhc71q6VhxR66g8ayw6XaLGyVLahwbCVRlk2V-JXv15/exec'; 
@@ -23,6 +24,7 @@
         const cartTotalSpan = document.getElementById('cartTotal');
         const paymentMethodSelect = document.getElementById('paymentMethod');
         const confirmPaymentButton = document.getElementById('confirmPaymentButton');
+        // Tombol Cetak Nota dihapus dari sini
         const productIdInput = document.getElementById('productId');
         const formTitle = document.getElementById('formTitle');
         const cancelEditButton = document.getElementById('cancelEditButton');
@@ -38,11 +40,11 @@
         const scanQrButton = document.getElementById('scanQrButton');
         const qrScannerContainer = document.getElementById('qrScannerContainer');
         const qrVideo = document.getElementById('qrVideo');
-        const stopScanButton = document.getElementById('stopScanButton'); // Tombol ini akan berfungsi sebagai "Selesai"
+        const stopScanButton = document.getElementById('stopScanButton'); 
         const qrScanFeedback = document.getElementById('qrScanFeedback');
 
 
-        // Konfirmasi Modal
+        // Konfirmasi Modal (akan digunakan untuk cetak nota juga)
         const confirmationModal = document.getElementById('confirmationModal');
         const confirmationMessage = document.getElementById('confirmationMessage');
         const confirmActionButton = document.getElementById('confirmActionButton');
@@ -54,10 +56,11 @@
         let allProducts = []; 
         let videoStream = null; 
         let animationFrameId = null; 
-        let audioCtx = null; // Untuk Web Audio API
+        let audioCtx = null; 
         let lastScannedQrCode = null; 
         let lastScanTime = 0; 
-        const SCAN_DEBOUNCE_TIME = 2500; // 2.5 detik debounce time
+        const SCAN_DEBOUNCE_TIME = 2500; 
+        let lastSuccessfulTransactionData = null; 
         
         function showLoading(show) {
             loadingOverlay.classList.toggle('hidden', !show);
@@ -71,26 +74,31 @@
         }
         closeMessageModalButton.addEventListener('click', () => messageModal.classList.add('hidden'));
 
-        function showConfirmationModal(message, onConfirm) {
+        function showConfirmationModal(message, onConfirm, onCancel = null) {
             confirmationMessage.textContent = message;
-            currentConfirmAction = onConfirm;
+            currentConfirmAction = { confirm: onConfirm, cancel: onCancel }; // Simpan kedua callback
             confirmationModal.classList.remove('hidden');
         }
 
         confirmActionButton.addEventListener('click', () => {
-            if (currentConfirmAction) currentConfirmAction();
+            if (currentConfirmAction && typeof currentConfirmAction.confirm === 'function') {
+                currentConfirmAction.confirm();
+            }
             confirmationModal.classList.add('hidden');
             currentConfirmAction = null;
         });
 
         cancelActionButton.addEventListener('click', () => {
+            if (currentConfirmAction && typeof currentConfirmAction.cancel === 'function') {
+                currentConfirmAction.cancel();
+            }
             confirmationModal.classList.add('hidden');
             currentConfirmAction = null;
         });
 
         async function fetchFromAppsScript(action, method = 'GET', payload = null) {
             if (GOOGLE_APPS_SCRIPT_URL === 'MASUKKAN_URL_WEB_APP_GOOGLE_APPS_SCRIPT_ANDA_DI_SINI' || !GOOGLE_APPS_SCRIPT_URL) {
-                showMessage("URL Google Apps Script belum dikonfigurasi dengan benar.", false);
+                showMessage("URL Google Apps Script belum dikonfigurasi dengan benar. Harap periksa variabel GOOGLE_APPS_SCRIPT_URL.", false);
                 throw new Error("URL Google Apps Script belum dikonfigurasi dengan benar.");
             }
             showLoading(true);
@@ -134,6 +142,7 @@
         
         async function initializeAppWithGoogleSheets() {
             console.log("Initializing app with Google Sheets...");
+            // Tombol cetak nota tidak ada lagi, jadi tidak perlu dinonaktifkan di sini
             await loadProductsFromGoogleSheet();
             await loadSalesReportFromGoogleSheet();
             console.log("App initialized. Products loaded:", allProducts.length);
@@ -393,16 +402,39 @@
                 productId: item.id, quantitySold: item.quantity, name: item.name, code: item.code, price: item.price
             }));
             const totalAmount = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
-            const saleData = { items: itemsToProcess, paymentMethod, totalAmount, timestamp: new Date().toISOString() };
+            const saleTimestamp = new Date(); 
+            const saleData = { items: itemsToProcess, paymentMethod, totalAmount, timestamp: saleTimestamp.toISOString() };
 
             try {
                 const result = await fetchFromAppsScript('processSale', 'POST', saleData);
-                showMessage(result.message || "Pembayaran berhasil diproses.", true);
+                
+                lastSuccessfulTransactionData = {
+                    transactionId: result.transactionId, 
+                    items: JSON.parse(JSON.stringify(cart)), 
+                    totalAmount: totalAmount,
+                    paymentMethod: paymentMethod,
+                    timestamp: saleTimestamp 
+                };
+                
+                // Tampilkan modal konfirmasi untuk cetak nota
+                showConfirmationModal(
+                    `${result.message || "Pembayaran berhasil diproses."} Apakah ingin mencetak Nota?`,
+                    () => { // Aksi jika "Ya" (Confirm)
+                        printReceipt();
+                    },
+                    () => { // Aksi jika "Tidak" (Cancel) atau modal ditutup
+                        lastSuccessfulTransactionData = null; // Reset agar tidak bisa dicetak lagi
+                        console.log("Pengguna memilih untuk tidak mencetak nota.");
+                    }
+                );
+
                 await loadProductsFromGoogleSheet();
                 await loadSalesReportFromGoogleSheet();
-                cart = []; updateCartDisplay();
+                cart = []; 
+                updateCartDisplay(); 
             } catch (error) {
                 showMessage(`Gagal memproses penjualan: ${error.message}.`, false);
+                lastSuccessfulTransactionData = null; // Reset jika gagal
                 await loadProductsFromGoogleSheet(); 
             }
         });
@@ -557,11 +589,8 @@
                 if (code && code.data) {
                     const currentTime = Date.now();
                     if (code.data === lastScannedQrCode && (currentTime - lastScanTime) < SCAN_DEBOUNCE_TIME) {
-                        // Jika QR sama dan masih dalam debounce, tidak update feedback agar pesan sukses sebelumnya tidak hilang terlalu cepat
-                        // atau jika pesan default, biarkan.
                         if (!qrScanFeedback.innerHTML.includes('text-green-400') && !qrScanFeedback.innerHTML.includes('text-red-400')) {
-                            // Hanya tampilkan pesan "Menunggu" jika tidak ada feedback sukses/gagal sebelumnya
-                            // qrScanFeedback.innerHTML = `<span class="text-yellow-400">Kode QR terdeteksi: ${code.data} (Menunggu...)</span>`;
+                            // Tidak menampilkan "Menunggu..." lagi
                         }
                     } else {
                         lastScannedQrCode = code.data;
@@ -580,14 +609,10 @@
                             qrScanFeedback.innerHTML = `<span class="text-red-400">Produk ${code.data} tidak ditemukan. Scan lagi...</span>`;
                         }
                         setTimeout(() => {
-                            // Hanya reset feedback jika tidak ada scan baru yang sedang diproses (QR code masih sama dengan yang terakhir diproses)
-                            // atau jika videoStream masih aktif (kamera belum ditutup)
                             if (videoStream && (lastScannedQrCode === code.data || !lastScannedQrCode) ) { 
                                 qrScanFeedback.innerHTML = 'Arahkan kamera ke QR Code...';
-                                // Jangan reset lastScannedQrCode di sini agar debounce tetap efektif jika kamera masih mengarah ke QR yang sama
-                                // Reset lastScannedQrCode hanya ketika scan baru yang berbeda dimulai, atau saat startQrScan()
                             }
-                        }, 1500); // Tampilkan feedback sukses/gagal selama 1.5 detik
+                        }, 1500); 
                     }
                 } else {
                      if (videoStream && !qrScanFeedback.innerHTML.includes('text-green-400') && !qrScanFeedback.innerHTML.includes('text-red-400')) {
@@ -598,8 +623,94 @@
             if (videoStream) animationFrameId = requestAnimationFrame(scanQrCodeLoop);
         }
 
+        // --- Logika Cetak Nota PDF ---
+        function printReceipt() {
+            if (!lastSuccessfulTransactionData) {
+                showMessage("Tidak ada data transaksi terakhir untuk dicetak.", false);
+                return;
+            }
+
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF(); 
+            const transaction = lastSuccessfulTransactionData;
+            let yPos = 20; 
+            const lineHeight = 7;
+            const margin = 15;
+            const pageWidth = doc.internal.pageSize.getWidth();
+
+            doc.setFontSize(18);
+            doc.text("NOTA PEMBAYARAN", pageWidth / 2, yPos, { align: 'center' });
+            yPos += lineHeight * 2;
+
+            doc.setFontSize(10);
+            doc.text(`ID Transaksi: ${transaction.transactionId || 'N/A'}`, margin, yPos);
+            yPos += lineHeight;
+            doc.text(`Tanggal: ${transaction.timestamp.toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' })}`, margin, yPos);
+            yPos += lineHeight;
+            doc.text(`Metode Pembayaran: ${transaction.paymentMethod}`, margin, yPos);
+            yPos += lineHeight * 1.5;
+
+            doc.setLineWidth(0.2);
+            doc.line(margin, yPos, pageWidth - margin, yPos);
+            yPos += lineHeight;
+
+            doc.setFontSize(10);
+            const col1X = margin; 
+            const col4X = pageWidth - margin; 
+            const col3X = col4X - 25; 
+            const col2X = col3X - 20; 
+
+            doc.text("Deskripsi", col1X, yPos);
+            doc.text("Jml", col2X, yPos, { align: 'right' });
+            doc.text("Harga", col3X, yPos, { align: 'right' });
+            doc.text("Subtotal", col4X, yPos, { align: 'right' });
+            yPos += lineHeight * 0.5;
+            doc.line(margin, yPos, pageWidth - margin, yPos);
+            yPos += lineHeight;
+
+            transaction.items.forEach(item => {
+                const itemPrice = parseFloat(item.price);
+                const itemQuantity = parseInt(item.quantity);
+                const subtotal = itemPrice * itemQuantity;
+                let productName = item.name;
+                 if (productName.length > 25) { 
+                     productName = productName.substring(0, 22) + "...";
+                 }
+                doc.text(productName, col1X, yPos);
+                doc.text(itemQuantity.toString(), col2X, yPos, { align: 'right' });
+                doc.text(itemPrice.toLocaleString('id-ID'), col3X, yPos, { align: 'right' });
+                doc.text(subtotal.toLocaleString('id-ID'), col4X, yPos, { align: 'right' });
+                yPos += lineHeight;
+                 if (yPos > doc.internal.pageSize.getHeight() - 30) { 
+                    doc.addPage();
+                    yPos = 20; 
+                }
+            });
+
+            yPos += lineHeight * 0.5;
+            doc.line(margin, yPos, pageWidth - margin, yPos);
+            yPos += lineHeight;
+
+            doc.setFontSize(12);
+            doc.setFont(undefined, 'bold');
+            doc.text("TOTAL", margin, yPos);
+            doc.text(`Rp ${transaction.totalAmount.toLocaleString('id-ID')}`, pageWidth - margin, yPos, { align: 'right' });
+            yPos += lineHeight * 2;
+
+            doc.setFontSize(10);
+            doc.setFont(undefined, 'normal');
+            doc.text("Terima kasih telah berbelanja!", pageWidth / 2, yPos, { align: 'center' });
+            yPos += lineHeight;
+            doc.text("HAMIAL.ID", pageWidth / 2, yPos, { align: 'center' });
+
+            doc.save(`nota_${transaction.transactionId || Date.now()}.pdf`);
+            lastSuccessfulTransactionData = null; // Reset setelah nota dicetak
+        }
+
+
         scanQrButton.addEventListener('click', startQrScan);
         stopScanButton.addEventListener('click', stopQrScan); 
+        // Event listener untuk printReceiptButton dihapus
         
         document.addEventListener('DOMContentLoaded', initializeAppWithGoogleSheets);
 
@@ -758,7 +869,7 @@
                     </select>
                 </div>
                 <button id="confirmPaymentButton" class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500">Konfirmasi Pembayaran</button>
-            </div>
+                </div>
         </div>
 
         <div class="mt-8 bg-white p-6 rounded-lg shadow-lg">
@@ -800,10 +911,10 @@
             <p id="confirmationMessage" class="text-sm text-gray-700 mb-4">Apakah Anda yakin?</p>
             <div class="mt-5 sm:mt-6 sm:grid sm:grid-cols-2 sm:gap-3 sm:grid-flow-row-dense">
                 <button id="confirmActionButton" type="button" class="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-red-600 text-base font-medium text-white hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 sm:col-start-2 sm:text-sm">
-                    Ya, Lanjutkan
+                    Ya
                 </button>
                 <button id="cancelActionButton" type="button" class="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:mt-0 sm:col-start-1 sm:text-sm">
-                    Batal
+                    Tidak
                 </button>
             </div>
         </div>
