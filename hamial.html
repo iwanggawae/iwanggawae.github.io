@@ -55,9 +55,9 @@
         let videoStream = null; 
         let animationFrameId = null; 
         let audioCtx = null; // Untuk Web Audio API
-        let lastScannedQrCode = null; // Untuk mencegah pemindaian berulang dari QR yang sama dengan cepat
-        let lastScanTime = 0; // Waktu pemindaian terakhir
-        const SCAN_DEBOUNCE_TIME = 2000; // 2 detik debounce time
+        let lastScannedQrCode = null; 
+        let lastScanTime = 0; 
+        const SCAN_DEBOUNCE_TIME = 2500; // 2.5 detik debounce time
         
         function showLoading(show) {
             loadingOverlay.classList.toggle('hidden', !show);
@@ -515,9 +515,9 @@
                 showMessage("Kamera tidak didukung oleh browser ini.", false); return;
             }
             qrScannerContainer.classList.remove('hidden');
-            qrScanFeedback.textContent = "Arahkan kamera ke QR Code...";
-            lastScannedQrCode = null; // Reset QR code terakhir yang dipindai
-            lastScanTime = 0; // Reset waktu pemindaian terakhir
+            qrScanFeedback.innerHTML = "Arahkan kamera ke QR Code..."; 
+            lastScannedQrCode = null; 
+            lastScanTime = 0; 
 
             navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } })
                 .then(function(stream) {
@@ -529,9 +529,8 @@
                 })
                 .catch(function(err) {
                     console.error("Error mengakses kamera: ", err);
-                    qrScanFeedback.textContent = "Gagal mengakses kamera: " + err.message;
+                    qrScanFeedback.innerHTML = `<span class="text-red-400">Gagal mengakses kamera: ${err.message}</span>`;
                     showMessage("Gagal mengakses kamera: " + err.name, false);
-                    stopQrScan(); 
                 });
         }
 
@@ -542,7 +541,7 @@
             videoStream = null;
             qrVideo.srcObject = null;
             qrScannerContainer.classList.add('hidden');
-            qrScanFeedback.textContent = "";
+            qrScanFeedback.innerHTML = ""; 
         }
 
         function scanQrCodeLoop() {
@@ -557,14 +556,16 @@
 
                 if (code && code.data) {
                     const currentTime = Date.now();
-                    // Cek apakah QR code sama dengan yang terakhir dipindai dan apakah dalam waktu debounce
                     if (code.data === lastScannedQrCode && (currentTime - lastScanTime) < SCAN_DEBOUNCE_TIME) {
-                        // Abaikan jika QR code sama dan masih dalam waktu debounce
-                        qrScanFeedback.textContent = `Kode QR terdeteksi: ${code.data} (Menunggu...)`;
+                        // Jika QR sama dan masih dalam debounce, tidak update feedback agar pesan sukses sebelumnya tidak hilang terlalu cepat
+                        // atau jika pesan default, biarkan.
+                        if (!qrScanFeedback.innerHTML.includes('text-green-400') && !qrScanFeedback.innerHTML.includes('text-red-400')) {
+                            // Hanya tampilkan pesan "Menunggu" jika tidak ada feedback sukses/gagal sebelumnya
+                            // qrScanFeedback.innerHTML = `<span class="text-yellow-400">Kode QR terdeteksi: ${code.data} (Menunggu...)</span>`;
+                        }
                     } else {
                         lastScannedQrCode = code.data;
                         lastScanTime = currentTime;
-                        qrScanFeedback.textContent = `Kode QR terdeteksi: ${code.data}`;
                         searchProductInput.value = code.data; 
                         
                         const productToScan = allProducts.find(p => p.code === code.data || p.id === code.data);
@@ -572,24 +573,33 @@
                             const addedSuccessfully = addProductToCartById(productToScan.id); 
                             if (addedSuccessfully) {
                                 playBeep(); 
-                                qrScanFeedback.textContent = `${productToScan.name} ditambahkan! Scan lagi...`;
+                                qrScanFeedback.innerHTML = `<span class="text-green-400 flex items-center justify-center"><svg class="h-5 w-5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg> Item ditambahkan: ${productToScan.name}</span>`;
                             }
-                            // Jika gagal (stok habis dll), pesan sudah dari addProductToCartById
                         } else {
                             showMessage(`Produk dengan kode QR "${code.data}" tidak ditemukan.`, false);
-                            qrScanFeedback.textContent = `Produk ${code.data} tidak ditemukan. Scan lagi...`;
+                            qrScanFeedback.innerHTML = `<span class="text-red-400">Produk ${code.data} tidak ditemukan. Scan lagi...</span>`;
                         }
-                        // Jangan panggil stopQrScan() di sini agar kamera tetap aktif
+                        setTimeout(() => {
+                            // Hanya reset feedback jika tidak ada scan baru yang sedang diproses (QR code masih sama dengan yang terakhir diproses)
+                            // atau jika videoStream masih aktif (kamera belum ditutup)
+                            if (videoStream && (lastScannedQrCode === code.data || !lastScannedQrCode) ) { 
+                                qrScanFeedback.innerHTML = 'Arahkan kamera ke QR Code...';
+                                // Jangan reset lastScannedQrCode di sini agar debounce tetap efektif jika kamera masih mengarah ke QR yang sama
+                                // Reset lastScannedQrCode hanya ketika scan baru yang berbeda dimulai, atau saat startQrScan()
+                            }
+                        }, 1500); // Tampilkan feedback sukses/gagal selama 1.5 detik
                     }
                 } else {
-                    qrScanFeedback.textContent = "Arahkan kamera ke QR Code...";
+                     if (videoStream && !qrScanFeedback.innerHTML.includes('text-green-400') && !qrScanFeedback.innerHTML.includes('text-red-400')) {
+                        qrScanFeedback.innerHTML = 'Arahkan kamera ke QR Code...';
+                    }
                 }
             }
             if (videoStream) animationFrameId = requestAnimationFrame(scanQrCodeLoop);
         }
 
         scanQrButton.addEventListener('click', startQrScan);
-        stopScanButton.addEventListener('click', stopQrScan); // Tombol ini sekarang berfungsi sebagai "Selesai"
+        stopScanButton.addEventListener('click', stopQrScan); 
         
         document.addEventListener('DOMContentLoaded', initializeAppWithGoogleSheets);
 
@@ -638,7 +648,7 @@
             color: white;
             margin-top: 10px;
             font-size: 0.9em;
-            text-align: center; /* Agar teks feedback lebih rapi */
+            text-align: center; 
         }
     </style>
 </head>
