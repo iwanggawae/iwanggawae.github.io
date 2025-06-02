@@ -9,6 +9,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>
     <style>
         body { font-family: 'Inter', sans-serif; }
         ::-webkit-scrollbar { width: 8px; }
@@ -247,6 +248,11 @@
                         <button class="bg-yellow-500 hover:bg-yellow-700 text-white font-bold py-1 px-2 rounded text-sm edit-btn" data-id="${productId}">Edit</button>
                         <button class="bg-red-500 hover:bg-red-700 text-white font-bold py-1 px-2 rounded text-sm delete-btn ml-1" data-id="${productId}">Hapus</button>
                         <button class="bg-green-500 hover:bg-green-700 text-white font-bold py-1 px-2 rounded text-sm add-to-cart-btn ml-1" data-id="${productId}" data-type="list">+ Keranjang</button>
+                        <button class="bg-purple-500 hover:bg-purple-700 text-white font-bold py-1 px-2 rounded text-sm generate-qr-pdf-btn ml-1" data-id="${productId}" data-code="${product.code}" data-name="${product.name}" title="Generate QR PDF">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 inline-block" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v1m6 11h-1m-2-11a1 1 0 011 1v1h-1V6a1 1 0 011-1zM4 12a1 1 0 011-1h1v1H5a1 1 0 01-1-1zm15 0a1 1 0 011-1h1v1h-1a1 1 0 01-1-1zm-2 7a1 1 0 011-1h1v1h-1a1 1 0 01-1-1zM7 12a1 1 0 011-1h1v1H8a1 1 0 01-1-1zm7 0a1 1 0 011-1h1v1h-1a1 1 0 01-1-1zm-2-7a1 1 0 011-1h1v1h-1a1 1 0 01-1-1zM6 5a1 1 0 011-1h1v1H7a1 1 0 01-1-1zm13 7a1 1 0 011-1h1v1h-1a1 1 0 01-1-1z" /> <path stroke-linecap="round" stroke-linejoin="round" d="M3 10h18M3 14h18M9 4v16M15 4v16" />
+                            </svg> QR
+                        </button>
                     </td>
                 `;
             });
@@ -315,9 +321,11 @@
         });
 
         productsTableBody.addEventListener('click', async (e) => {
-            const target = e.target;
+            const target = e.target.closest('button'); // Dapatkan elemen tombol yang diklik atau parent-nya
+            if (!target) return; // Jika bukan tombol, abaikan
+
             const id = target.dataset.id; 
-            if (!id) return; 
+            if (!id && !target.classList.contains('generate-qr-pdf-btn')) return; // Jika tidak ada ID dan bukan tombol QR PDF, abaikan
 
             if (target.classList.contains('edit-btn')) {
                 const productToEdit = allProducts.find(p => p.id === id);
@@ -345,6 +353,14 @@
                 }
             } else if (target.classList.contains('add-to-cart-btn')) { 
                  addProductToCartById(id);
+            } else if (target.classList.contains('generate-qr-pdf-btn')) {
+                const productCode = target.dataset.code;
+                const productName = target.dataset.name;
+                if (productCode) {
+                    generateQrPdf(productCode, productName);
+                } else {
+                    showMessage("Kode produk tidak ditemukan untuk generate QR.", false);
+                }
             }
         });
         
@@ -776,27 +792,103 @@
             lastSuccessfulTransactionData = null; 
         }
 
+        // --- Fungsi Generate QR PDF untuk Produk ---
+        function generateQrPdf(productCode, productName) {
+            if (!productCode) {
+                showMessage("Kode produk tidak valid untuk generate QR PDF.", false);
+                return;
+            }
+            showLoading(true);
+            try {
+                const { jsPDF } = window.jspdf;
+                const doc = new jsPDF('p', 'mm', 'a4'); // p = portrait, mm = millimeters, a4
+                
+                const qrSizeCm = 2; // Ukuran QR code dalam cm
+                const qrSizeMm = qrSizeCm * 10; // Konversi ke mm
+                const textHeightMm = 4; // Perkiraan tinggi teks kode barang di bawah QR
+                const verticalSpacingMm = 3; // Jarak vertikal antar QR + teks
+                const horizontalSpacingMm = 3; // Jarak horizontal antar QR
+                
+                const totalItemHeight = qrSizeMm + textHeightMm + verticalSpacingMm;
+                const totalItemWidth = qrSizeMm + horizontalSpacingMm;
+
+                const pageMarginMm = 10;
+                const pageWidthMm = doc.internal.pageSize.getWidth();
+                const pageHeightMm = doc.internal.pageSize.getHeight();
+                
+                const printAreaWidth = pageWidthMm - (2 * pageMarginMm);
+                const printAreaHeight = pageHeightMm - (2 * pageMarginMm);
+
+                const qrsPerRow = Math.floor(printAreaWidth / totalItemWidth);
+                const qrsPerCol = Math.floor(printAreaHeight / totalItemHeight);
+
+                if (qrsPerRow === 0 || qrsPerCol === 0) {
+                    showMessage("Ukuran QR terlalu besar untuk halaman A4 dengan margin saat ini.", false);
+                    showLoading(false);
+                    return;
+                }
+                
+                // Generate QR code image data (cukup sekali karena QR code sama)
+                const qr = qrcode(0, 'L'); // typeNumber 0 = auto, errorCorrectionLevel L
+                qr.addData(productCode.toString());
+                qr.make();
+                const qrImgData = qr.createDataURL(6, 0); // cellsize=6, margin=0 (sesuaikan cellsize untuk kualitas)
+
+                let currentX = pageMarginMm;
+                let currentY = pageMarginMm;
+
+                for (let r = 0; r < qrsPerCol; r++) {
+                    for (let c = 0; c < qrsPerRow; c++) {
+                        if (currentY + totalItemHeight > pageHeightMm - pageMarginMm && (r < qrsPerCol -1 || c < qrsPerRow -1) ) { // Cek jika butuh halaman baru
+                            // Ini seharusnya tidak terjadi jika qrsPerCol dihitung dengan benar,
+                            // tapi sebagai pengaman jika ada pembulatan.
+                            break; // Hentikan baris ini jika akan melebihi halaman
+                        }
+                        if (currentX + totalItemWidth > pageWidthMm - pageMarginMm && c < qrsPerRow -1) {
+                             break; // Hentikan kolom ini jika akan melebihi halaman
+                        }
+
+                        doc.addImage(qrImgData, 'PNG', currentX, currentY, qrSizeMm, qrSizeMm);
+                        doc.setFontSize(7); // Ukuran font kecil untuk kode barang
+                        doc.text(productCode.toString(), currentX + (qrSizeMm / 2), currentY + qrSizeMm + textHeightMm -1 , { align: 'center' });
+                        
+                        currentX += totalItemWidth;
+                    }
+                    currentX = pageMarginMm; // Reset X untuk baris baru
+                    currentY += totalItemHeight;
+                     if (currentY + totalItemHeight > pageHeightMm - pageMarginMm && r < qrsPerCol -1) {
+                        doc.addPage();
+                        currentY = pageMarginMm;
+                    }
+                }
+                doc.save(`QR_Codes_${productName || 'Produk'}_${productCode}.pdf`);
+                showMessage("PDF QR Code berhasil digenerate!", true);
+
+            } catch (error) {
+                console.error("Error generating QR PDF:", error);
+                showMessage("Gagal membuat PDF QR Code: " + error.message, false);
+            } finally {
+                showLoading(false);
+            }
+        }
+
 
         scanQrButton.addEventListener('click', startQrScan);
         stopScanButton.addEventListener('click', stopQrScan); 
-        // Event listener untuk printReceiptButton dihapus
         
         document.addEventListener('DOMContentLoaded', () => {
-            // Logika Onboarding
             if (onboardingScreen && mainAppContainer) {
-                mainAppContainer.classList.add('hidden'); // Sembunyikan aplikasi utama dulu
+                mainAppContainer.classList.add('hidden'); 
                 
                 setTimeout(() => {
                     onboardingScreen.classList.add('opacity-0');
                     setTimeout(() => {
                         onboardingScreen.style.display = 'none';
                         mainAppContainer.classList.remove('hidden');
-                        // Inisialisasi aplikasi utama setelah onboarding selesai
                         initializeAppWithGoogleSheets();
-                    }, 500); // Waktu ini harus cocok dengan durasi transisi opacity
-                }, 3000); // Tampilkan onboarding selama 3 detik
+                    }, 500); 
+                }, 3000); 
             } else {
-                // Jika elemen onboarding tidak ada, langsung inisialisasi aplikasi
                 initializeAppWithGoogleSheets();
             }
         });
