@@ -1,0 +1,893 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KelASIK - Platform Kelas Berbasis Online</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">
+    <script src="https://cdn.quilljs.com/1.3.6/quill.js"></script>
+    
+    <style>
+        body { 
+            font-family: 'Inter', sans-serif; 
+            background-color: #f3f4f6;
+        }
+        .page { display: none; }
+        .page.active { display: block; }
+        .loader {
+            border: 4px solid #e5e7eb; border-top: 4px solid #4f46e5;
+            border-radius: 50%; width: 40px; height: 40px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        .loading-overlay {
+            position: fixed; inset: 0; background-color: rgba(243, 244, 246, 0.8);
+            display: flex; align-items: center; justify-content: center; z-index: 100;
+        }
+        
+        .prose-content h1, #detail-content-full h1 {
+            font-size: 1.875rem; font-weight: 800;
+            margin-bottom: 1rem; line-height: 1.2;
+        }
+        .prose-content h2, #detail-content-full h2 {
+            font-size: 1.5rem; font-weight: 700;
+            margin-top: 2rem; margin-bottom: 1rem;
+            line-height: 1.25; padding-bottom: 0.5rem;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        .prose-content p, #detail-content-full p, 
+        .prose-content ul, #detail-content-full ul, 
+        .prose-content ol, #detail-content-full ol {
+            margin-bottom: 1rem; line-height: 1.75;
+            font-size: 1.125rem; color: #374151;
+        }
+        .prose-content ul, #detail-content-full ul { 
+            list-style-type: disc; 
+            padding-left: 1.75rem; 
+        }
+        .prose-content ol, #detail-content-full ol { 
+            list-style-type: decimal; 
+            padding-left: 1.75rem; 
+        }
+        .prose-content img, #detail-content-full img { 
+            max-width: 100%; height: auto; 
+            border-radius: 0.5rem; margin-top: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+        .prose-content iframe, #detail-content-full iframe { 
+            width: 100%; aspect-ratio: 16 / 9; 
+            border-radius: 0.5rem; margin-top: 1.5rem;
+            margin-bottom: 1.5rem; border: none; 
+        }
+        .prose-content table, #detail-content-full table {
+            width: 100%; border-collapse: collapse;
+            margin-top: 1.5rem; margin-bottom: 1.5rem; 
+            font-size: 0.9rem;
+        }
+        .prose-content th, #detail-content-full th,
+        .prose-content td, #detail-content-full td {
+            border: 1px solid #e5e7eb; 
+            padding: 0.75rem; 
+            text-align: left;
+        }
+        .prose-content th, #detail-content-full th { 
+            background-color: #f9fafb; 
+            font-weight: 600; 
+        }
+        
+        #editor-container { height: 250px; }
+        .ql-toolbar { border-top-left-radius: 0.5rem; border-top-right-radius: 0.5rem; }
+        .ql-container { border-bottom-left-radius: 0.5rem; border-bottom-right-radius: 0.5rem; }
+
+        #splash-screen {
+            animation: fadeIn 1s ease-in-out;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        @keyframes fadeOut {
+            from { opacity: 1; }
+            to { opacity: 0; }
+        }
+        .fade-out {
+            animation: fadeOut 1s ease-in-out forwards;
+        }
+        .fade-in-app {
+            animation: fadeIn 1s ease-in-out forwards;
+        }
+    </style>
+</head>
+<body class="bg-gray-100" oncontextmenu="return false;">
+
+    <!-- Splash Screen -->
+    <div id="splash-screen" class="fixed inset-0 bg-white flex flex-col items-center justify-center z-[200]">
+        <div class="text-center">
+            <svg class="h-24 w-24 text-indigo-600 mx-auto" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm-1-12h2v4h-2zm0 6h2v2h-2z"/>
+                <path d="M12 4c-4.41 0-8 3.59-8 8s3.59 8 8 8 8-3.59 8-8-3.59-8-8-8zm-2.5 11.5c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zm5 0c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zM12 9c-1.66 0-3 1.34-3 3h6c0-1.66-1.34-3-3-3z" opacity=".3"/>
+            </svg>
+            <h1 class="text-5xl font-extrabold text-indigo-600 mt-4">KelASIK</h1>
+            <p class="text-lg text-gray-500 mt-2">Platform Kelas Berbasis Online</p>
+        </div>
+        <div class="absolute bottom-6 text-center text-xs text-gray-400">
+            <p>Developed By <strong>JAGODIGITAL</strong></p>
+            <p>iwanggawae ft Google Gemini AI</p>
+        </div>
+    </div>
+    
+    <div id="app-wrapper" class="opacity-0">
+        <!-- Overlay Loading -->
+        <div id="loading-overlay" class="loading-overlay hidden">
+            <div class="loader"></div>
+        </div>
+
+        <!-- Container Utama -->
+        <div id="app" class="max-w-7xl mx-auto p-4 md:p-6">
+
+            <!-- Navigasi -->
+            <nav class="bg-white p-4 rounded-xl shadow-md mb-8 flex justify-between items-center">
+                <div>
+                    <h1 class="text-2xl font-extrabold text-indigo-600">KelASIK</h1>
+                    <p class="text-sm text-gray-500">Platform Kelas Berbasis Online</p>
+                </div>
+                <div id="nav-buttons">
+                    <button onclick="showPage('login-page')" class="bg-indigo-500 text-white px-4 py-2 rounded-lg hover:bg-indigo-600 transition">Login</button>
+                    <button onclick="showPage('register-page')" class="ml-2 bg-gray-200 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-300 transition">Daftar</button>
+                </div>
+                <div id="nav-user" class="hidden items-center">
+                     <span id="user-greeting" class="mr-4 font-medium"></span>
+                     <button onclick="logout()" class="bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600 transition">Logout</button>
+                </div>
+            </nav>
+
+            <!-- Halaman Login -->
+            <div id="login-page" class="page max-w-md mx-auto bg-white p-8 rounded-xl shadow-md">
+                 <h2 class="text-3xl font-bold mb-6 text-center">Login</h2>
+                <div class="space-y-4">
+                    <input id="login-email" type="email" placeholder="Email" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                    <input id="login-password" type="password" placeholder="Password" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                    <button onclick="handleLogin()" class="w-full bg-indigo-600 text-white py-3 rounded-lg font-semibold hover:bg-indigo-700 transition">Masuk</button>
+                </div>
+                <p class="text-center mt-4">Belum punya akun? <a href="#" onclick="showPage('register-page')" class="text-indigo-600 hover:underline">Daftar di sini</a></p>
+            </div>
+
+            <!-- Halaman Register -->
+            <div id="register-page" class="page max-w-md mx-auto bg-white p-8 rounded-xl shadow-md">
+                 <h2 class="text-3xl font-bold mb-6 text-center">Daftar Akun Baru</h2>
+                <div class="space-y-4">
+                    <input id="register-name" type="text" placeholder="Nama Lengkap" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                    <input id="register-email" type="email" placeholder="Email" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                    <input id="register-password" type="password" placeholder="Password" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                    <button onclick="handleRegister()" class="w-full bg-indigo-600 text-white py-3 rounded-lg font-semibold hover:bg-indigo-700 transition">Daftar</button>
+                </div>
+                 <p class="text-center mt-4">Sudah punya akun? <a href="#" onclick="showPage('login-page')" class="text-indigo-600 hover:underline">Login di sini</a></p>
+            </div>
+            
+            <!-- Dashboard Pengguna -->
+            <div id="user-dashboard-page" class="page">
+                <div class="bg-white p-6 rounded-xl shadow-md mb-6">
+                  <h2 class="text-3xl font-bold" id="welcome-message"></h2>
+                  <p class="text-gray-600 mt-1">Status Keanggotaan Anda: <span id="user-status-container" class="flex flex-wrap gap-2 mt-1"></span></p>
+                </div>
+                <div id="demo-materials-section" class="mb-8">
+                  <h3 class="text-2xl font-bold mb-4">📚 Materi Demo (Gratis)</h3>
+                  <div id="demo-materials-container" class="grid md:grid-cols-2 lg:grid-cols-3 gap-6"></div>
+                </div>
+                <div id="pro-materials-section"></div>
+                <div id="package-offers-section" class="hidden"></div>
+            </div>
+
+            <!-- Halaman Detail Materi (Full Page) -->
+            <div id="material-detail-page" class="page">
+                <div class="bg-white p-6 md:p-8 rounded-xl shadow-lg">
+                    <button onclick="goBackToDashboard()" class="mb-6 bg-gray-200 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-300 transition flex items-center">
+                        <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
+                        Kembali ke Dashboard
+                    </button>
+                    <h1 id="detail-title-full" class="text-3xl md:text-4xl font-extrabold text-gray-900 mb-4"></h1>
+                    <div id="detail-audio-container-full" class="mb-6"></div>
+                    <div id="detail-content-full" class="prose max-w-none prose-lg border-t pt-6">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Halaman Admin -->
+            <div id="admin-dashboard-page" class="page">
+                <!-- ... Konten Admin ... -->
+            </div>
+            
+            <!-- Modal Notifikasi -->
+            <div id="notification-modal" class="hidden fixed inset-0 bg-gray-900 bg-opacity-50 flex items-center justify-center z-50 p-4">
+                <div class="bg-white rounded-lg shadow-xl p-6 max-w-sm w-full mx-auto text-center">
+                    <p id="notification-message" class="text-lg font-medium"></p>
+                    <button id="notification-ok" onclick="closeModal()" class="mt-4 bg-indigo-500 text-white px-6 py-2 rounded-lg hover:bg-indigo-600 transition">OK</button>
+                    <div id="notification-confirm-buttons" class="hidden mt-4 space-x-2">
+                        <button id="notification-confirm-yes" class="bg-red-600 text-white px-6 py-2 rounded-lg hover:bg-red-700 transition">Ya</button>
+                        <button id="notification-confirm-no" class="bg-gray-300 text-gray-800 px-6 py-2 rounded-lg hover:bg-gray-400 transition">Tidak</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <footer class="text-center py-6 text-sm text-gray-500">
+            <p>Developed By <strong>JAGODIGITAL</strong> | iwanggawae ft Google Gemini AI</p>
+        </footer>
+    </div>
+
+<script>
+// ===================================================================================
+// [FIXED] SCRIPT LENGKAP
+// ===================================================================================
+const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbxPD1Bp3DrXeROpxxB5BxAR7Ys_KtjbFvQ5HvnIVU0xt8yqn-vhOt1E8bJDb4Liqll8_A/exec';
+let db = { users: [], materials: [], packages: [] };
+let currentUser = null;
+const loadingOverlay = document.getElementById('loading-overlay');
+let quill;
+const PRO_PACKAGES = ['PRO STUDENT', 'PRO OFFICE', 'PRO DIGITAL CONTENT', 'PRO DATA ANALYST'];
+
+// SCRIPT ANTI INSPECT ELEMENT
+document.addEventListener('keydown', function (e) {
+    if (e.keyCode === 123 || (e.ctrlKey && e.shiftKey && (e.keyCode === 'I'.charCodeAt(0) || e.keyCode === 'C'.charCodeAt(0) || e.keyCode === 'J'.charCodeAt(0))) || (e.ctrlKey && e.keyCode === 'U'.charCodeAt(0))) {
+        e.preventDefault();
+    }
+});
+
+// FUNGSI INISIALISASI
+document.addEventListener('DOMContentLoaded', () => {
+    const splashScreen = document.getElementById('splash-screen');
+    const appWrapper = document.getElementById('app-wrapper');
+    
+    splashScreen.style.display = 'flex';
+    appWrapper.style.opacity = '0';
+
+    setTimeout(() => {
+        splashScreen.classList.add('fade-out');
+        appWrapper.classList.add('fade-in-app');
+        
+        setTimeout(() => {
+            splashScreen.style.display = 'none';
+        }, 1000);
+
+    }, 3000);
+
+    fetchInitialData();
+});
+
+function initializeQuill() {
+    if (quill) return; // Mencegah inisialisasi ganda
+    quill = new Quill('#editor-container', {
+        modules: {
+            toolbar: [
+                [{ 'header': [1, 2, false] }],
+                ['bold', 'italic', 'underline'],
+                [{ 'list': 'ordered'}, { 'list': 'bullet' }],
+                ['link', 'video'],
+                ['clean']
+            ]
+        },
+        theme: 'snow'
+    });
+}
+
+async function fetchInitialData() {
+    setLoading(true);
+    try {
+        const response = await fetch(`${WEB_APP_URL}?action=getInitialData`);
+        const result = await response.json();
+        if (result.status === 'success') {
+            db = result.data;
+            const loggedInUserEmail = sessionStorage.getItem('currentUserEmail');
+            if (loggedInUserEmail) {
+                currentUser = (db.users || []).find(u => u.email.toLowerCase() === loggedInUserEmail.toLowerCase());
+                if (currentUser) updateUIForLoggedInUser();
+                else showPage('login-page');
+            } else {
+                showPage('login-page');
+            }
+        } else {
+            throw new Error(result.message);
+        }
+    } catch (error) {
+        showNotification(`Gagal memuat data: ${error.message}`);
+    } finally {
+        setLoading(false);
+    }
+}
+
+// FUNGSI UTILITY
+function setLoading(isLoading) { loadingOverlay.classList.toggle('hidden', !isLoading); }
+function showPage(pageId) {
+    document.querySelectorAll('.page').forEach(page => page.classList.remove('active'));
+    document.getElementById(pageId).classList.add('active');
+    window.scrollTo(0, 0);
+}
+
+function showNotification(message) {
+    document.getElementById('notification-message').textContent = message;
+    document.getElementById('notification-ok').style.display = 'block';
+    document.getElementById('notification-confirm-buttons').classList.add('hidden');
+    document.getElementById('notification-modal').classList.remove('hidden');
+}
+
+function showConfirmation(message, onConfirm) {
+    document.getElementById('notification-message').textContent = message;
+    document.getElementById('notification-ok').style.display = 'none';
+    const confirmButtons = document.getElementById('notification-confirm-buttons');
+    confirmButtons.classList.remove('hidden');
+    document.getElementById('notification-modal').classList.remove('hidden');
+
+    const yesButton = document.getElementById('notification-confirm-yes');
+    const noButton = document.getElementById('notification-confirm-no');
+    
+    const yesHandler = () => { onConfirm(); closeModal(); cleanup(); };
+    const noHandler = () => { closeModal(); cleanup(); };
+
+    function cleanup() {
+        yesButton.removeEventListener('click', yesHandler);
+        noButton.removeEventListener('click', noHandler);
+    }
+
+    yesButton.addEventListener('click', yesHandler, { once: true });
+    noButton.addEventListener('click', noHandler, { once: true });
+}
+
+function closeModal() { document.getElementById('notification-modal').classList.add('hidden'); }
+
+function showMaterialDetail(id) {
+    const material = (db.materials || []).find(m => m.id == id);
+    if (!material) return;
+    
+    let finalContent = material.content;
+    if (material.images && material.images.length > 0) {
+        finalContent = material.content.replace(/\[IMAGE_(\d+)\]/g, (match, index) => {
+            const imageSrc = material.images[parseInt(index)];
+            return imageSrc ? `<img src="${imageSrc}">` : '';
+        });
+    }
+
+    document.getElementById('detail-title-full').textContent = material.title;
+    document.getElementById('detail-content-full').innerHTML = finalContent;
+    
+    const audioContainer = document.getElementById('detail-audio-container-full');
+    if (material.audioUrl) {
+        audioContainer.innerHTML = `<audio controls class="w-full"><source src="${material.audioUrl}" type="audio/mpeg">Browser Anda tidak mendukung elemen audio.</audio>`;
+        audioContainer.classList.remove('hidden');
+    } else {
+        audioContainer.innerHTML = '';
+        audioContainer.classList.add('hidden');
+    }
+
+    showPage('material-detail-page');
+}
+function goBackToDashboard() {
+    if (currentUser && currentUser.isAdmin) {
+        showPage('admin-dashboard-page');
+    } else {
+        showPage('user-dashboard-page');
+    }
+}
+
+
+// FUNGSI AUTENTIKASI
+async function handleLogin() { 
+    const email = document.getElementById('login-email').value;
+    const password = document.getElementById('login-password').value;
+    setLoading(true);
+    try {
+        const response = await postData({ action: 'login', payload: { email, password } });
+        currentUser = response.data;
+        sessionStorage.setItem('currentUserEmail', currentUser.email);
+        await fetchInitialData();
+    } catch (error) {
+        showNotification(error.message);
+    } finally {
+        setLoading(false);
+    }
+}
+async function handleRegister() {
+    const name = document.getElementById('register-name').value;
+    const email = document.getElementById('register-email').value;
+    const password = document.getElementById('register-password').value;
+
+    if (!name || !email || !password) {
+        showNotification("Mohon isi semua field.");
+        return;
+    }
+    setLoading(true);
+    try {
+        const response = await postData({ action: 'register', payload: { name, email, password } });
+        showNotification("Pendaftaran berhasil! Silakan login.");
+        showPage('login-page');
+        document.getElementById('register-name').value = '';
+        document.getElementById('register-email').value = '';
+        document.getElementById('register-password').value = '';
+    } catch (error) {
+        showNotification(error.message);
+    } finally {
+        setLoading(false);
+    }
+}
+function logout() {
+    currentUser = null;
+    sessionStorage.removeItem('currentUserEmail');
+    document.getElementById('nav-buttons').style.display = 'block';
+    document.getElementById('nav-user').classList.add('hidden');
+    showPage('login-page');
+}
+
+// FUNGSI RENDER
+function updateUIForLoggedInUser() {
+    document.getElementById('nav-buttons').style.display = 'none';
+    const navUser = document.getElementById('nav-user');
+    navUser.classList.remove('hidden');
+    navUser.classList.add('flex');
+    document.getElementById('user-greeting').textContent = `Halo, ${currentUser.name}!`;
+
+    if (currentUser.isAdmin) {
+        renderAdminDashboard();
+        showPage('admin-dashboard-page');
+    } else {
+        renderUserDashboard();
+        showPage('user-dashboard-page');
+    }
+}
+
+function renderUserDashboard() {
+    document.getElementById('welcome-message').textContent = `Selamat Datang, ${currentUser.name}!`;
+    const statusContainer = document.getElementById('user-status-container');
+    statusContainer.innerHTML = '';
+    const userPackages = (currentUser.proPackage || 'Gratis').split(',').map(p => p.trim());
+    userPackages.forEach(pkg => {
+        const isPro = pkg.toLowerCase() !== 'gratis';
+        statusContainer.innerHTML += `<span class="font-semibold px-3 py-1 mr-2 rounded-full ${isPro ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}">${pkg}</span>`;
+    });
+
+    const demoContainer = document.getElementById('demo-materials-container');
+    demoContainer.innerHTML = '';
+    (db.materials || []).filter(m => m.type === 'Demo').forEach(material => {
+        demoContainer.innerHTML += createMaterialCard(material);
+    });
+    
+    const proSection = document.getElementById('pro-materials-section');
+    proSection.innerHTML = '';
+    const userProPackages = userPackages.filter(p => p.toLowerCase() !== 'gratis');
+    
+    const accessibleProMaterials = (db.materials || []).filter(material => {
+        if (material.type !== 'Pro') return false;
+        const materialPackages = (material.allowedPackages || '').split(',').map(p => p.trim());
+        return userProPackages.some(userPkg => materialPackages.includes(userPkg));
+    });
+
+    if (accessibleProMaterials.length > 0) {
+        proSection.innerHTML = `
+            <div class="mb-8">
+                <h3 class="text-2xl font-bold mb-4">👑 Materi Pro Anda</h3>
+                <div class="mt-4 grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    ${accessibleProMaterials.map(material => {
+                        const materialPackages = (material.allowedPackages || '').split(',').map(p => p.trim());
+                        const relevantPackages = userProPackages.filter(userPkg => materialPackages.includes(userPkg));
+                        return createMaterialCard(material, relevantPackages);
+                    }).join('')}
+                </div>
+            </div>`;
+    }
+    
+    const offerSection = document.getElementById('package-offers-section');
+    const packagesToOffer = (db.packages || []).filter(p => p.isAvailable && !userPackages.includes(p.packageName));
+    if(packagesToOffer.length > 0 && !currentUser.isAdmin) {
+        offerSection.classList.remove('hidden');
+        renderPackageOffers(packagesToOffer);
+    } else {
+        offerSection.classList.add('hidden');
+    }
+}
+
+function createMaterialCard(material, accessPackages = []) {
+    let previewContent = material.content.replace(/<img[^>]*>/g, "[Gambar] ");
+    const previewText = document.createElement("div");
+    previewText.innerHTML = previewContent;
+    
+    let packageInfoHtml = '';
+    if (accessPackages.length > 0) {
+        const packageBadges = accessPackages.map(pkg => `<span class="text-xs bg-indigo-100 text-indigo-800 px-2 py-1 rounded-full font-medium">${pkg.replace('PRO ', '')}</span>`).join(' ');
+        packageInfoHtml = `<div class="mt-4 flex flex-wrap gap-2">${packageBadges}</div>`;
+    }
+
+    return `
+        <div 
+            class="bg-white p-6 rounded-xl flex flex-col justify-between cursor-pointer hover:shadow-lg transition-shadow"
+            onclick='showMaterialDetail(${material.id})'
+        >
+            <div class="flex-grow">
+                <div class="flex justify-between items-start">
+                    <h4 class="text-lg font-bold mb-2 text-gray-800 flex-1">${material.title}</h4>
+                    ${material.audioUrl ? '<svg class="w-5 h-5 text-gray-400 ml-2" fill="currentColor" viewBox="0 0 20 20"><path d="M18 3a1 1 0 00-1.447-.894L4 6.424v6.152l12.553 3.32a1 1 0 001.447-.894V3zM3 7.5a1 1 0 011-1h1a1 1 0 110 2H4a1 1 0 01-1-1zM3 12.5a1 1 0 011-1h1a1 1 0 110 2H4a1 1 0 01-1-1z"></path></svg>' : ''}
+                </div>
+                <p class="text-gray-500 text-sm overflow-hidden h-10">${previewText.textContent || ""}</p>
+            </div>
+            ${packageInfoHtml}
+        </div>`;
+}
+
+function renderPackageOffers(packagesToOffer) {
+    const offerContainer = document.getElementById('package-offers-section');
+    const benefits = {
+        'PRO STUDENT': ['Akses Materi Dasar', 'Studi Kasus Proyek', 'Diskon Khusus Pelajar'],
+        'PRO OFFICE': ['Manajemen Proyek AI', 'Integrasi API', 'Template Siap Pakai'],
+        'PRO DIGITAL CONTENT': ['AI untuk Konten Viral', 'Analisis Tren', 'Workshop Kreatif'],
+        'PRO DATA ANALYST': ['Analisis Data Lanjutan', 'Visualisasi Kompleks', 'Dataset Eksklusif']
+    };
+
+    let packageCardsHtml = packagesToOffer.map(pkg => {
+        const hasDiscount = pkg.discountPrice && pkg.discountPrice < pkg.price;
+        const priceHtml = hasDiscount 
+            ? `<span class="text-xl text-gray-400 line-through">Rp${Number(pkg.price).toLocaleString('id-ID')}</span> <span class="text-3xl font-bold text-indigo-600">Rp${Number(pkg.discountPrice).toLocaleString('id-ID')}</span>`
+            : `<span class="text-3xl font-bold text-indigo-600">Rp${Number(pkg.price).toLocaleString('id-ID')}</span>`;
+        
+        const benefitList = (benefits[pkg.packageName] || []).map(b => `<li class="flex items-center"><svg class="w-5 h-5 text-green-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>${b}</li>`).join('');
+
+        return `
+            <div class="bg-white rounded-xl shadow-lg p-6 flex flex-col text-left border-t-4 border-indigo-500">
+                <h4 class="text-xl font-bold text-gray-800 mb-2">${pkg.packageName}</h4>
+                <div class="my-4 text-center">
+                    ${priceHtml}
+                    <span class="text-gray-500">/ selamanya</span>
+                </div>
+                <ul class="space-y-2 text-gray-600 mb-6 text-sm">
+                    ${benefitList}
+                </ul>
+                <a href="https://wa.me/628127490206" target="_blank" class="mt-auto w-full text-center bg-green-500 text-white py-2 rounded-lg font-semibold hover:bg-green-600 transition">Hubungi Kami via WhatsApp</a>
+            </div>
+        `;
+    }).join('');
+
+    offerContainer.innerHTML = `
+        <div class="bg-white p-6 rounded-xl shadow-md mb-8">
+            <h3 class="text-2xl font-bold text-center mb-1">Upgrade atau Tambah Paket PRO!</h3>
+            <p class="text-center text-gray-600 mb-6">Perluas wawasan Anda dengan memilih paket lain di bawah ini.</p>
+            <div class="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
+                ${packageCardsHtml}
+            </div>
+        </div>
+    `;
+}
+
+
+function renderAdminDashboard() {
+    if (!quill) initializeQuill();
+    renderUserManagementTable();
+    renderMaterialManagementTable();
+    renderPackageManagementTable();
+}
+
+function renderPackageManagementTable() {
+    const container = document.getElementById('package-management-container');
+    container.innerHTML = '';
+    const tableHeader = `
+        <table class="min-w-full bg-white">
+            <thead class="bg-gray-50">
+                <tr>
+                    <th class="py-3 px-4 border-b text-left">Nama Paket</th>
+                    <th class="py-3 px-4 border-b text-left">Harga Normal</th>
+                    <th class="py-3 px-4 border-b text-left">Harga Diskon</th>
+                    <th class="py-3 px-4 border-b text-center">Tersedia</th>
+                </tr>
+            </thead>
+            <tbody id="package-management-table" class="text-gray-700"></tbody>
+        </table>
+    `;
+    container.innerHTML = tableHeader;
+
+    const tableBody = document.getElementById('package-management-table');
+    (db.packages || []).forEach(pkg => {
+        tableBody.innerHTML += `
+            <tr class="border-b">
+                <td class="py-2 px-4 font-semibold">${pkg.packageName}</td>
+                <td class="py-2 px-4"><input type="number" class="w-full border-gray-300 rounded-md p-2" data-package-name="${pkg.packageName}" data-field="price" value="${pkg.price || ''}"></td>
+                <td class="py-2 px-4"><input type="number" class="w-full border-gray-300 rounded-md p-2" data-package-name="${pkg.packageName}" data-field="discountPrice" value="${pkg.discountPrice || ''}"></td>
+                <td class="py-2 px-4 text-center"><input type="checkbox" class="h-5 w-5 text-indigo-600 rounded" data-package-name="${pkg.packageName}" data-field="isAvailable" ${pkg.isAvailable ? 'checked' : ''}></td>
+            </tr>
+        `;
+    });
+}
+
+
+function renderUserManagementTable() {
+    const userTableBody = document.getElementById('user-management-table');
+    userTableBody.innerHTML = '';
+    (db.users || []).filter(u => !u.isAdmin).forEach(user => {
+        const userPackages = (user.proPackage || 'Gratis').split(',').map(p => p.trim());
+        
+        let packageCheckboxes = PRO_PACKAGES.map(pkg => `
+            <label class="flex items-center p-2 rounded-md hover:bg-gray-50 cursor-pointer">
+                <input type="checkbox" name="user-package-${user.id}" value="${pkg}" class="mr-3 h-4 w-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500" ${userPackages.includes(pkg) ? 'checked' : ''}>
+                <span class="text-sm text-gray-700">${pkg}</span>
+            </label>
+        `).join('');
+
+        const packageSelector = `
+            <div class="flex flex-col space-y-1 p-2 border rounded-lg">
+                ${packageCheckboxes}
+            </div>
+            <button onclick="updateUserPackages(${user.id})" class="mt-3 w-full bg-blue-500 text-white text-sm px-3 py-1.5 rounded-md hover:bg-blue-600">Simpan</button>
+        `;
+
+        const statusDisplay = userPackages.map(pkg => `<span class="block whitespace-nowrap mb-1 px-2 py-1 font-semibold text-xs rounded-full ${pkg.toLowerCase() !== 'gratis' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}">${pkg}</span>`).join('');
+
+        userTableBody.innerHTML += `
+            <tr class="border-b align-top hover:bg-gray-50">
+                <td class="py-3 px-4">${user.name}</td>
+                <td class="py-3 px-4">${user.email}</td>
+                <td class="py-3 px-4">${statusDisplay}</td>
+                <td class="py-3 px-4 w-64">${packageSelector}</td>
+                <td class="py-3 px-4 text-right">
+                    <button onclick="deleteUser(${user.id})" class="bg-red-500 text-white text-sm px-3 py-1.5 rounded-md hover:bg-red-600">Hapus</button>
+                </td>
+            </tr>`;
+    });
+}
+
+function renderMaterialManagementTable() {
+    const materialTableBody = document.getElementById('material-management-table');
+    materialTableBody.innerHTML = '';
+    (db.materials || []).forEach(material => {
+        materialTableBody.innerHTML += `
+            <tr class="border-b hover:bg-gray-50">
+                <td class="py-3 px-4">${material.title}</td>
+                <td class="py-3 px-4"><span class="px-2 py-1 font-semibold text-xs rounded-full ${material.type === 'Pro' ? 'bg-purple-100 text-purple-800' : 'bg-green-100 text-green-800'}">${material.type}</span></td>
+                <td class="py-3 px-4 text-right space-x-2">
+                    <button onclick="editMaterial(${material.id})" class="bg-yellow-500 text-white text-sm px-3 py-1 rounded-md hover:bg-yellow-600">Edit</button>
+                    <button onclick="deleteMaterial(${material.id})" class="bg-red-500 text-white text-sm px-3 py-1 rounded-md hover:bg-red-600">Hapus</button>
+                </td>
+            </tr>`;
+    });
+}
+
+// ===================================================================================
+// FUNGSI ADMIN
+// ===================================================================================
+function deleteUser(id) {
+    const user = (db.users || []).find(u => u.id == id);
+    if (!user) return;
+    showConfirmation(`Apakah Anda yakin ingin menghapus pengguna "${user.name}"? Tindakan ini tidak bisa dibatalkan.`, async () => {
+        setLoading(true);
+        try {
+            await postData({ action: 'deleteUser', payload: { id } });
+            showNotification(`Pengguna "${user.name}" berhasil dihapus.`);
+            await fetchInitialData();
+        } catch (error) {
+            showNotification(error.message);
+        } finally {
+            setLoading(false);
+        }
+    });
+}
+
+function updateUserPackages(userId) {
+    const user = (db.users || []).find(u => u.id == userId);
+    if (!user) return;
+    let selectedPackages = [];
+    document.querySelectorAll(`input[name="user-package-${userId}"]:checked`).forEach(checkbox => {
+        selectedPackages.push(checkbox.value);
+    });
+
+    showConfirmation(`Apakah Anda yakin ingin mengubah paket untuk ${user.name}?`, async () => {
+        setLoading(true);
+        try {
+            await postData({ action: 'updateUserPackages', payload: { userId, packages: selectedPackages } });
+            showNotification(`Paket untuk ${user.name} berhasil diubah.`);
+            await fetchInitialData();
+        } catch (error) {
+            showNotification(error.message);
+            await fetchInitialData();
+        } finally {
+            setLoading(false);
+        }
+    });
+}
+
+async function handleUpdatePackages() {
+    const payload = [];
+    document.querySelectorAll('#package-management-table tr').forEach(row => {
+        const packageName = row.querySelector('td').textContent;
+        const price = row.querySelector('input[data-field="price"]').value;
+        const discountPrice = row.querySelector('input[data-field="discountPrice"]').value;
+        const isAvailable = row.querySelector('input[data-field="isAvailable"]').checked;
+        payload.push({ packageName, price, discountPrice, isAvailable });
+    });
+
+    setLoading(true);
+    try {
+        await postData({ action: 'updatePackages', payload: payload });
+        showNotification('Data paket berhasil diperbarui.');
+        await fetchInitialData();
+    } catch(error) {
+        showNotification(error.message);
+    } finally {
+        setLoading(false);
+    }
+}
+
+function handleSubmitMaterial() {
+    const id = document.getElementById('edit-material-id').value;
+    if (id) {
+        handleUpdateMaterial(id);
+    } else {
+        handleAddMaterial();
+    }
+}
+
+function processImagesForSubmission(htmlContent) {
+    const images = [];
+    let imageIndex = 0;
+    const newContent = htmlContent.replace(/<img src="(data:image\/[^;]+;base64,[^"]+)">/g, (match, p1) => {
+        images.push(p1);
+        return `[IMAGE_${imageIndex++}]`;
+    });
+    return { content: newContent, images: images };
+}
+
+async function handleAddMaterial() {
+    const title = document.getElementById('new-material-title').value;
+    const rawContent = quill.root.innerHTML;
+    const type = document.querySelector('input[name="material-type"]:checked').value;
+    const audioUrl = document.getElementById('new-material-audio-url').value;
+    
+    const { content, images } = processImagesForSubmission(rawContent);
+
+    let allowedPackages = [];
+    if (type === 'Pro') {
+        document.querySelectorAll('input[name="material-access"]:checked').forEach(checkbox => {
+            allowedPackages.push(checkbox.value);
+        });
+        if (allowedPackages.length === 0) {
+            showNotification("Untuk materi PRO, silakan pilih minimal satu paket yang dapat mengakses.");
+            return;
+        }
+    }
+
+    if (!title || quill.getLength() <= 1) {
+        showNotification("Judul dan konten materi tidak boleh kosong.");
+        return;
+    }
+
+    setLoading(true);
+    try {
+        await postData({ action: 'addMaterial', payload: { title, content, type, allowedPackages: allowedPackages.join(','), images, audioUrl } });
+        showNotification(`Materi "${title}" berhasil ditambahkan.`);
+        cancelEdit();
+        await fetchInitialData();
+    } catch (error) {
+        showNotification(error.message);
+    } finally {
+        setLoading(false);
+    }
+}
+
+function editMaterial(id) {
+    const material = (db.materials || []).find(m => m.id == id);
+    if (!material) return;
+
+    document.getElementById('edit-material-id').value = material.id;
+    document.getElementById('new-material-title').value = material.title;
+    document.getElementById('new-material-audio-url').value = material.audioUrl || '';
+    
+    let finalContent = material.content;
+    if (material.images && material.images.length > 0) {
+        finalContent = material.content.replace(/\[IMAGE_(\d+)\]/g, (match, index) => {
+            const imageSrc = material.images[parseInt(index)];
+            return imageSrc ? `<img src="${imageSrc}">` : '';
+        });
+    }
+    quill.clipboard.dangerouslyPasteHTML(0, finalContent);
+
+    document.querySelector(`input[name="material-type"][value="${material.type}"]`).checked = true;
+    
+    const proPackagesSection = document.getElementById('pro-packages-section');
+    document.querySelectorAll('input[name="material-access"]').forEach(checkbox => checkbox.checked = false);
+    if (material.type === 'Pro') {
+        proPackagesSection.classList.remove('hidden');
+        const allowedPackages = (material.allowedPackages || '').split(',').map(p => p.trim());
+        allowedPackages.forEach(pkg => {
+            const checkbox = document.querySelector(`input[name="material-access"][value="${pkg}"]`);
+            if (checkbox) checkbox.checked = true;
+        });
+    } else {
+        proPackagesSection.classList.add('hidden');
+    }
+
+    document.getElementById('material-form-title').textContent = 'Edit Materi';
+    document.getElementById('submit-material-button').textContent = 'Simpan Perubahan';
+    document.getElementById('cancel-edit-button').classList.remove('hidden');
+    
+    document.getElementById('material-form-section').scrollIntoView({ behavior: 'smooth' });
+}
+
+function cancelEdit() {
+    document.getElementById('edit-material-id').value = '';
+    document.getElementById('new-material-title').value = '';
+    document.getElementById('new-material-audio-url').value = '';
+    quill.setText('');
+    document.querySelector(`input[name="material-type"][value="Demo"]`).checked = true;
+    
+    document.querySelectorAll('input[name="material-access"]').forEach(checkbox => checkbox.checked = false);
+    document.getElementById('pro-packages-section').classList.add('hidden');
+
+    document.getElementById('material-form-title').textContent = 'Tambah Materi Baru';
+    document.getElementById('submit-material-button').textContent = 'Tambah Materi';
+    document.getElementById('cancel-edit-button').classList.add('hidden');
+}
+
+async function handleUpdateMaterial(id) {
+    const title = document.getElementById('new-material-title').value;
+    const rawContent = quill.root.innerHTML;
+    const type = document.querySelector('input[name="material-type"]:checked').value;
+    const audioUrl = document.getElementById('new-material-audio-url').value;
+    
+    const { content, images } = processImagesForSubmission(rawContent);
+
+    let allowedPackages = [];
+    if (type === 'Pro') {
+        document.querySelectorAll('input[name="material-access"]:checked').forEach(checkbox => {
+            allowedPackages.push(checkbox.value);
+        });
+        if (allowedPackages.length === 0) {
+            showNotification("Untuk materi PRO, silakan pilih minimal satu paket yang dapat mengakses.");
+            return;
+        }
+    }
+
+    setLoading(true);
+    try {
+        await postData({ action: 'updateMaterial', payload: { id, title, content, type, allowedPackages: allowedPackages.join(','), images, audioUrl } });
+        showNotification(`Materi "${title}" berhasil diperbarui.`);
+        cancelEdit();
+        await fetchInitialData();
+    } catch (error) {
+        showNotification(error.message);
+    } finally {
+        setLoading(false);
+    }
+}
+
+function deleteMaterial(id) {
+    const material = (db.materials || []).find(m => m.id == id);
+    if (!material) return;
+    showConfirmation(`Apakah Anda yakin ingin menghapus materi "${material.title}"?`, async () => {
+        setLoading(true);
+        try {
+            await postData({ action: 'deleteMaterial', payload: { id } });
+            showNotification(`Materi "${material.title}" berhasil dihapus.`);
+            await fetchInitialData();
+        } catch (error) {
+            showNotification(error.message);
+        } finally {
+            setLoading(false);
+        }
+    });
+}
+
+function togglePackageCheckboxes(isPro) {
+    document.getElementById('pro-packages-section').classList.toggle('hidden', !isPro);
+}
+
+// ===================================================================================
+// FUNGSI HELPER POST DATA
+// ===================================================================================
+async function postData(body) {
+    const response = await fetch(WEB_APP_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify(body)
+    });
+    const result = await response.json();
+    if (result.status === 'error') throw new Error(result.message);
+    return result;
+}
+</script>
+</body>
+</html>
