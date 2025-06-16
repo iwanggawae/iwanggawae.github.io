@@ -9,6 +9,9 @@
     
     <link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">
     <script src="https://cdn.quilljs.com/1.3.6/quill.js"></script>
+
+    <!-- SortableJS for Drag and Drop -->
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
     
     <style>
         body { 
@@ -27,61 +30,29 @@
             position: fixed; inset: 0; background-color: rgba(243, 244, 246, 0.8);
             display: flex; align-items: center; justify-content: center; z-index: 100;
         }
-        
-        .prose-content h1, #detail-content-full h1 {
-            font-size: 1.875rem; font-weight: 800;
-            margin-bottom: 1rem; line-height: 1.2;
-        }
-        .prose-content h2, #detail-content-full h2 {
-            font-size: 1.5rem; font-weight: 700;
-            margin-top: 2rem; margin-bottom: 1rem;
-            line-height: 1.25; padding-bottom: 0.5rem;
-            border-bottom: 1px solid #e5e7eb;
-        }
-        .prose-content p, #detail-content-full p, 
-        .prose-content ul, #detail-content-full ul, 
-        .prose-content ol, #detail-content-full ol {
-            margin-bottom: 1rem; line-height: 1.75;
-            font-size: 1.125rem; color: #374151;
-        }
-        .prose-content ul, #detail-content-full ul { 
-            list-style-type: disc; 
-            padding-left: 1.75rem; 
-        }
-        .prose-content ol, #detail-content-full ol { 
-            list-style-type: decimal; 
-            padding-left: 1.75rem; 
-        }
-        .prose-content img, #detail-content-full img { 
-            max-width: 100%; height: auto; 
-            border-radius: 0.5rem; margin-top: 1.5rem;
-            margin-bottom: 1.5rem;
-        }
-        .prose-content iframe, #detail-content-full iframe { 
-            width: 100%; aspect-ratio: 16 / 9; 
-            border-radius: 0.5rem; margin-top: 1.5rem;
-            margin-bottom: 1.5rem; border: none; 
-        }
-        .prose-content table, #detail-content-full table {
-            width: 100%; border-collapse: collapse;
-            margin-top: 1.5rem; margin-bottom: 1.5rem; 
-            font-size: 0.9rem;
-        }
-        .prose-content th, #detail-content-full th,
-        .prose-content td, #detail-content-full td {
-            border: 1px solid #e5e7eb; 
-            padding: 0.75rem; 
-            text-align: left;
-        }
-        .prose-content th, #detail-content-full th { 
-            background-color: #f9fafb; 
-            font-weight: 600; 
-        }
+        .prose-content h1, #detail-content-full h1 { font-size: 1.875rem; font-weight: 800; margin-bottom: 1rem; line-height: 1.2; }
+        .prose-content h2, #detail-content-full h2 { font-size: 1.5rem; font-weight: 700; margin-top: 2rem; margin-bottom: 1rem; line-height: 1.25; padding-bottom: 0.5rem; border-bottom: 1px solid #e5e7eb; }
+        .prose-content p, #detail-content-full p, .prose-content ul, #detail-content-full ul, .prose-content ol, #detail-content-full ol { margin-bottom: 1rem; line-height: 1.75; font-size: 1.125rem; color: #374151; }
+        .prose-content ul, #detail-content-full ul { list-style-type: disc; padding-left: 1.75rem; }
+        .prose-content ol, #detail-content-full ol { list-style-type: decimal; padding-left: 1.75rem; }
+        .prose-content img, #detail-content-full img { max-width: 100%; height: auto; border-radius: 0.5rem; margin: 1.5rem 0; }
+        .prose-content iframe, #detail-content-full iframe { width: 100%; aspect-ratio: 16 / 9; border-radius: 0.5rem; margin: 1.5rem 0; border: none; }
+        .prose-content table, #detail-content-full table { width: 100%; border-collapse: collapse; margin: 1.5rem 0; font-size: 0.9rem; }
+        .prose-content th, #detail-content-full th, .prose-content td, #detail-content-full td { border: 1px solid #e5e7eb; padding: 0.75rem; text-align: left; }
+        .prose-content th, #detail-content-full th { background-color: #f9fafb; font-weight: 600; }
         
         #editor-container { height: 250px; }
         .ql-toolbar { border-top-left-radius: 0.5rem; border-top-right-radius: 0.5rem; }
         .ql-container { border-bottom-left-radius: 0.5rem; border-bottom-right-radius: 0.5rem; }
-
+        
+        .sortable-ghost {
+            background-color: #eef2ff;
+            opacity: 0.7;
+        }
+        .sortable-chosen {
+            cursor: grabbing;
+        }
+        
         #splash-screen {
             animation: fadeIn 1s ease-in-out;
         }
@@ -98,6 +69,12 @@
         }
         .fade-in-app {
             animation: fadeIn 1s ease-in-out forwards;
+        }
+        
+        .collapsible-content {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.5s ease-in-out;
         }
     </style>
 </head>
@@ -195,44 +172,61 @@
                 </div>
             </div>
 
-            <!-- [FIXED] Halaman Admin dengan konten lengkap -->
+            <!-- Halaman Admin -->
             <div id="admin-dashboard-page" class="page">
-                 <h2 class="text-3xl font-bold mb-6">🔑 Dashboard Admin</h2>
+                <h2 class="text-3xl font-bold mb-6">🔑 Dashboard Admin</h2>
                  <div class="bg-white p-6 rounded-xl shadow-md mb-8">
-                     <h3 class="text-2xl font-semibold mb-4">Manajemen Paket</h3>
-                     <div id="package-management-container"></div>
-                     <button onclick="handleUpdatePackages()" class="mt-4 w-full bg-indigo-600 text-white py-2 px-6 rounded-lg font-semibold hover:bg-indigo-700 transition">Simpan Perubahan Paket</button>
-                 </div>
-                 <div class="bg-white p-6 rounded-xl shadow-md mb-8">
-                     <h3 class="text-2xl font-semibold mb-4">Manajemen Pengguna</h3>
-                     <div class="overflow-x-auto">
-                        <table class="min-w-full bg-white">
-                            <thead class="bg-gray-50">
-                                <tr>
-                                    <th class="py-3 px-4 border-b text-left">Nama</th>
-                                    <th class="py-3 px-4 border-b text-left">Email</th>
-                                    <th class="py-3 px-4 border-b text-left">Paket Aktif</th>
-                                    <th class="py-3 px-4 border-b text-left">Ubah Paket</th>
-                                    <th class="py-3 px-4 border-b text-right">Aksi</th>
-                                </tr>
-                            </thead>
-                            <tbody id="user-management-table"></tbody>
-                        </table>
+                     <div onclick="toggleSection(this)" class="flex justify-between items-center cursor-pointer">
+                         <h3 class="text-2xl font-semibold">Manajemen Paket</h3>
+                         <svg class="w-6 h-6 transform transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                     </div>
+                     <div class="collapsible-content mt-4">
+                         <div id="package-management-container"></div>
+                         <button onclick="handleUpdatePackages()" class="mt-4 w-full bg-indigo-600 text-white py-2 px-6 rounded-lg font-semibold hover:bg-indigo-700 transition">Simpan Perubahan Paket</button>
                      </div>
                  </div>
                  <div class="bg-white p-6 rounded-xl shadow-md mb-8">
-                     <h3 class="text-2xl font-semibold mb-4">Manajemen Materi</h3>
-                     <div class="overflow-x-auto">
-                        <table class="min-w-full bg-white">
-                            <thead class="bg-gray-50">
-                                <tr>
-                                    <th class="py-2 px-4 border-b text-left">Judul Materi</th>
-                                    <th class="py-2 px-4 border-b text-left">Tipe</th>
-                                    <th class="py-2 px-4 border-b text-right">Aksi</th>
-                                </tr>
-                            </thead>
-                            <tbody id="material-management-table"></tbody>
-                        </table>
+                     <div onclick="toggleSection(this)" class="flex justify-between items-center cursor-pointer">
+                        <h3 class="text-2xl font-semibold">Manajemen Pengguna</h3>
+                        <svg class="w-6 h-6 transform transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                     </div>
+                     <div class="collapsible-content mt-4">
+                        <div class="overflow-x-auto">
+                           <table class="min-w-full bg-white">
+                               <thead class="bg-gray-50">
+                                   <tr>
+                                       <th class="py-3 px-4 border-b text-left">Nama</th>
+                                       <th class="py-3 px-4 border-b text-left">Email</th>
+                                       <th class="py-3 px-4 border-b text-left">Paket Aktif</th>
+                                       <th class="py-3 px-4 border-b text-left">Ubah Paket</th>
+                                       <th class="py-3 px-4 border-b text-right">Aksi</th>
+                                   </tr>
+                               </thead>
+                               <tbody id="user-management-table"></tbody>
+                           </table>
+                        </div>
+                     </div>
+                 </div>
+                 <!-- [UPDATED] Menghapus fungsi onclick dari manajemen materi -->
+                 <div class="bg-white p-6 rounded-xl shadow-md mb-8">
+                     <div class="flex justify-between items-center">
+                        <h3 class="text-2xl font-semibold">Manajemen Materi</h3>
+                     </div>
+                     <div class="mt-4">
+                        <p class="text-sm text-gray-500 mb-4">Anda bisa menarik dan melepas (drag & drop) baris materi untuk mengubah urutan.</p>
+                        <div class="overflow-x-auto">
+                           <table class="min-w-full bg-white">
+                               <thead class="bg-gray-50">
+                                   <tr>
+                                       <th class="py-2 px-4 border-b text-left">Judul Materi</th>
+                                       <th class="py-2 px-4 border-b text-left">Tipe & Akses Paket</th>
+                                       <th class="py-2 px-4 border-b text-right">Aksi</th>
+                                   </tr>
+                               </thead>
+                               <tbody id="material-management-table"></tbody>
+                           </table>
+                        </div>
+                        <button id="save-order-button" onclick="handleSaveMaterialOrder()" class="hidden mt-4 w-full bg-green-500 text-white py-2 px-6 rounded-lg font-semibold hover:bg-green-600 transition">Simpan Urutan Materi</button>
                      </div>
                  </div>
                  <div id="material-form-section" class="bg-white p-6 rounded-xl shadow-md">
@@ -324,19 +318,20 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 function initializeQuill() {
-    if (quill) return; 
-    quill = new Quill('#editor-container', {
-        modules: {
-            toolbar: [
-                [{ 'header': [1, 2, false] }],
-                ['bold', 'italic', 'underline'],
-                [{ 'list': 'ordered'}, { 'list': 'bullet' }],
-                ['link', 'video'],
-                ['clean']
-            ]
-        },
-        theme: 'snow'
-    });
+    if (document.getElementById('editor-container') && !quill) {
+        quill = new Quill('#editor-container', {
+            modules: {
+                toolbar: [
+                    [{ 'header': [1, 2, false] }],
+                    ['bold', 'italic', 'underline'],
+                    [{ 'list': 'ordered'}, { 'list': 'bullet' }],
+                    ['link', 'video'],
+                    ['clean']
+                ]
+            },
+            theme: 'snow'
+        });
+    }
 }
 
 async function fetchInitialData() {
@@ -434,6 +429,18 @@ function goBackToDashboard() {
         showPage('admin-dashboard-page');
     } else {
         showPage('user-dashboard-page');
+    }
+}
+
+function toggleSection(header) {
+    const content = header.nextElementSibling;
+    const icon = header.querySelector('svg');
+    if (content.style.maxHeight && content.style.maxHeight !== '0px') {
+        content.style.maxHeight = '0px';
+        icon.style.transform = 'rotate(0deg)';
+    } else {
+        content.style.maxHeight = content.scrollHeight + "px";
+        icon.style.transform = 'rotate(-180deg)';
     }
 }
 
@@ -700,22 +707,41 @@ function renderUserManagementTable() {
 function renderMaterialManagementTable() {
     const materialTableBody = document.getElementById('material-management-table');
     materialTableBody.innerHTML = '';
-    (db.materials || []).forEach(material => {
+    const sortedMaterials = (db.materials || []).sort((a, b) => (a.order || 999) - (b.order || 999));
+    sortedMaterials.forEach(material => {
+        let typeDisplayHtml = '';
+        if (material.type === 'Pro') {
+            const packages = (material.allowedPackages || '').split(',').map(p => p.trim()).filter(p => p);
+            if (packages.length > 0) {
+                typeDisplayHtml = packages.map(pkg => `<span class="block whitespace-nowrap mb-1 px-2 py-1 font-semibold text-xs rounded-full bg-purple-100 text-purple-800">${pkg.replace('PRO ', '')}</span>`).join('');
+            } else {
+                typeDisplayHtml = `<span class="px-2 py-1 font-semibold text-xs rounded-full bg-yellow-100 text-yellow-800">Pro (No Package)</span>`;
+            }
+        } else {
+            typeDisplayHtml = `<span class="px-2 py-1 font-semibold text-xs rounded-full bg-green-100 text-green-800">Demo</span>`;
+        }
+        
         materialTableBody.innerHTML += `
-            <tr class="border-b hover:bg-gray-50">
+            <tr class="border-b hover:bg-gray-50 cursor-move" data-id="${material.id}">
                 <td class="py-3 px-4">${material.title}</td>
-                <td class="py-3 px-4"><span class="px-2 py-1 font-semibold text-xs rounded-full ${material.type === 'Pro' ? 'bg-purple-100 text-purple-800' : 'bg-green-100 text-green-800'}">${material.type}</span></td>
+                <td class="py-3 px-4">${typeDisplayHtml}</td>
                 <td class="py-3 px-4 text-right space-x-2">
                     <button onclick="editMaterial(${material.id})" class="bg-yellow-500 text-white text-sm px-3 py-1 rounded-md hover:bg-yellow-600">Edit</button>
                     <button onclick="deleteMaterial(${material.id})" class="bg-red-500 text-white text-sm px-3 py-1 rounded-md hover:bg-red-600">Hapus</button>
                 </td>
             </tr>`;
     });
+    new Sortable(materialTableBody, {
+        animation: 150,
+        ghostClass: 'sortable-ghost',
+        chosenClass: 'sortable-chosen',
+        onEnd: function() {
+            document.getElementById('save-order-button').classList.remove('hidden');
+        }
+    });
 }
 
-// ===================================================================================
 // FUNGSI ADMIN
-// ===================================================================================
 function deleteUser(id) {
     const user = (db.users || []).find(u => u.id == id);
     if (!user) return;
@@ -777,6 +803,23 @@ async function handleUpdatePackages() {
         setLoading(false);
     }
 }
+
+async function handleSaveMaterialOrder() {
+    const tableBody = document.getElementById('material-management-table');
+    const orderedIds = Array.from(tableBody.querySelectorAll('tr')).map(row => row.dataset.id);
+    setLoading(true);
+    try {
+        await postData({ action: 'updateMaterialOrder', payload: { orderedIds } });
+        showNotification('Urutan materi berhasil disimpan.');
+        document.getElementById('save-order-button').classList.add('hidden');
+        await fetchInitialData();
+    } catch(error) {
+        showNotification(error.message);
+    } finally {
+        setLoading(false);
+    }
+}
+
 
 function handleSubmitMaterial() {
     const id = document.getElementById('edit-material-id').value;
@@ -941,9 +984,7 @@ function togglePackageCheckboxes(isPro) {
     document.getElementById('pro-packages-section').classList.toggle('hidden', !isPro);
 }
 
-// ===================================================================================
 // FUNGSI HELPER POST DATA
-// ===================================================================================
 async function postData(body) {
     const response = await fetch(WEB_APP_URL, {
         method: 'POST',
